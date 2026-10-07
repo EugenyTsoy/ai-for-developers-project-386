@@ -12,7 +12,7 @@
     <Project Path="src/CallBooking.Api/CallBooking.Api.csproj" Id="1f5c9b95-1b74-485d-9d79-473324ac9437" />
   </Folder>
   <Folder Name="/src/CallBooking.Web/">
-    <Project Path="src/CallBooking.Web/callbooking.web.esproj">
+    <Project Path="src/callbooking.web/callbooking.web.esproj">
       <Build />
       <Deploy />
     </Project>
