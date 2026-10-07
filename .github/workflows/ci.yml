@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore API
+        run: dotnet restore ./src/CallBooking.Api/CallBooking.Api.csproj
+
+      - name: Restore AppHost
+        run: dotnet restore ./src/CallBooking.AppHost/CallBooking.AppHost.csproj
+
+      - name: Restore tests
+        run: dotnet restore ./tests/CallBooking.Api.Tests/CallBooking.Api.Tests.csproj
+
+      - name: Build API
+        run: dotnet build ./src/CallBooking.Api/CallBooking.Api.csproj --no-restore --configuration Release
+
+      - name: Build AppHost
+        run: dotnet build ./src/CallBooking.AppHost/CallBooking.AppHost.csproj --no-restore --configuration Release
+
+      - name: Build tests
+        run: dotnet build ./tests/CallBooking.Api.Tests/CallBooking.Api.Tests.csproj --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test ./tests/CallBooking.Api.Tests/CallBooking.Api.Tests.csproj --no-build --configuration Release
+
+      - name: Check API formatting
+        run: dotnet format ./src/CallBooking.Api/CallBooking.Api.csproj --verify-no-changes
+
+      - name: Check AppHost formatting
+        run: dotnet format ./src/CallBooking.AppHost/CallBooking.AppHost.csproj --verify-no-changes
+
+      - name: Check test formatting
+        run: dotnet format ./tests/CallBooking.Api.Tests/CallBooking.Api.Tests.csproj --verify-no-changes
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./src/callbooking.web
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: ./src/callbooking.web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
