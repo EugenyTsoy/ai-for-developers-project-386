@@ -1,0 +1,23 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path=".gitignore" />
+    <File Path="AGENTS.md" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/CallBooking.AppHost/CallBooking.AppHost.csproj" Id="6aba39b7-1542-4d00-981b-732ebdab97bd" />
+  </Folder>
+  <Folder Name="/src/CallBooking.Api/">
+    <Project Path="src/CallBooking.Api/CallBooking.Api.csproj" Id="1f5c9b95-1b74-485d-9d79-473324ac9437" />
+  </Folder>
+  <Folder Name="/src/CallBooking.Web/">
+    <Project Path="src/CallBooking.Web/callbooking.web.esproj">
+      <Build />
+      <Deploy />
+    </Project>
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CallBooking.Api.Tests/CallBooking.Api.Tests.csproj" Id="be8b5e54-8233-4ca4-80cd-ca83dc8900ac" />
+  </Folder>
+</Solution>
