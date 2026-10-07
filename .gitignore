@@ -19,3 +19,7 @@ dist/
 
 # Logs
 *.log
+
+# AI
+.claude/
+.mcp.json
