@@ -44,3 +44,17 @@ Frontend, from `src/callbooking.web`:
 - .NET projects target `net10.0`; frontend CI uses Node 24. No `global.json` pins the .NET SDK.
 - `.editorconfig` requires C# 4-space indentation, Allman braces, and file-scoped namespaces.
 - Aspire runs the frontend through `AddViteApp`; Node must be installed, and Aspire runs an npm installer resource before starting Vite.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues (via the `gh` CLI). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The default five triage roles (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `GLOSSARY.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
