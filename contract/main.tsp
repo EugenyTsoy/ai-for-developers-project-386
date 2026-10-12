@@ -1,4 +1,5 @@
 import "@typespec/http";
+import "@typespec/openapi";
 import "@typespec/openapi3";
 
 using TypeSpec.Http;
@@ -165,11 +166,15 @@ model BookingCreatedResponse {
 // ---------------------------------------------------------------------------
 
 @doc("List all event types.")
+@tag("EventTypes")
+@operationId("EventTypes_List")
 @get
 @route("/event-types")
 op listEventTypes(): EventType[];
 
 @doc("Create a new event type.")
+@tag("EventTypes")
+@operationId("EventTypes_Create")
 @post
 @route("/event-types")
 op createEventType(@body request: CreateEventTypeRequest):
@@ -177,6 +182,8 @@ op createEventType(@body request: CreateEventTypeRequest):
   | BadRequestResponse;
 
 @doc("List the available slots for an event type within the booking window.")
+@tag("EventTypes")
+@operationId("EventTypes_Slots")
 @get
 @route("/event-types/{eventTypeId}/slots")
 op listSlots(@path eventTypeId: string):
@@ -184,6 +191,8 @@ op listSlots(@path eventTypeId: string):
   | NotFoundResponse;
 
 @doc("Create a booking for an available slot.")
+@tag("Bookings")
+@operationId("Bookings_Create")
 @post
 @route("/bookings")
 op createBooking(@body request: CreateBookingRequest):
@@ -193,11 +202,15 @@ op createBooking(@body request: CreateBookingRequest):
   | ConflictResponse;
 
 @doc("List upcoming bookings across all event types.")
+@tag("Bookings")
+@operationId("Bookings_Upcoming")
 @get
 @route("/bookings/upcoming")
 op listUpcomingBookings(): UpcomingBooking[];
 
 @doc("Get the calendar's authoritative timezone and metadata.")
+@tag("Calendar")
+@operationId("Calendar_Get")
 @get
 @route("/calendar")
 op getCalendar(): CalendarInfo;

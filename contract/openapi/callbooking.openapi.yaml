@@ -2,11 +2,14 @@ openapi: 3.0.0
 info:
   title: CallBooking API
   version: 0.0.0
-tags: []
+tags:
+  - name: EventTypes
+  - name: Bookings
+  - name: Calendar
 paths:
   /api/bookings:
     post:
-      operationId: createBooking
+      operationId: Bookings_Create
       description: Create a booking for an available slot.
       parameters: []
       responses:
@@ -34,6 +37,8 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+      tags:
+        - Bookings
       requestBody:
         required: true
         content:
@@ -42,7 +47,7 @@ paths:
               $ref: '#/components/schemas/CreateBookingRequest'
   /api/bookings/upcoming:
     get:
-      operationId: listUpcomingBookings
+      operationId: Bookings_Upcoming
       description: List upcoming bookings across all event types.
       parameters: []
       responses:
@@ -54,9 +59,11 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/UpcomingBooking'
+      tags:
+        - Bookings
   /api/calendar:
     get:
-      operationId: getCalendar
+      operationId: Calendar_Get
       description: Get the calendar's authoritative timezone and metadata.
       parameters: []
       responses:
@@ -66,9 +73,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CalendarInfo'
+      tags:
+        - Calendar
   /api/event-types:
     get:
-      operationId: listEventTypes
+      operationId: EventTypes_List
       description: List all event types.
       parameters: []
       responses:
@@ -80,8 +89,10 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/EventType'
+      tags:
+        - EventTypes
     post:
-      operationId: createEventType
+      operationId: EventTypes_Create
       description: Create a new event type.
       parameters: []
       responses:
@@ -97,6 +108,8 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+      tags:
+        - EventTypes
       requestBody:
         required: true
         content:
@@ -105,7 +118,7 @@ paths:
               $ref: '#/components/schemas/CreateEventTypeRequest'
   /api/event-types/{eventTypeId}/slots:
     get:
-      operationId: listSlots
+      operationId: EventTypes_Slots
       description: List the available slots for an event type within the booking window.
       parameters:
         - name: eventTypeId
@@ -128,6 +141,8 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+      tags:
+        - EventTypes
 components:
   schemas:
     BookingConfirmation:
