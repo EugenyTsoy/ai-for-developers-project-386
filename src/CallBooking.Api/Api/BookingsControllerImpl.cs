@@ -1,14 +1,15 @@
 using CallBooking.Api.Generated;
 using Microsoft.AspNetCore.Mvc;
 
-namespace CallBooking.Api.Services;
+namespace CallBooking.Api.Api;
 
 /// <summary>
-/// Minimal proof-of-seam implementation for the generated
+/// Handwritten API-boundary adapter behind the generated
+/// <see cref="BookingsController"/>. Implements the generated
 /// <see cref="IBookingsController"/> delegating interface. Contains no
 /// business logic; responses are placeholders only.
 /// </summary>
-public sealed class BookingsService : IBookingsController
+public sealed class BookingsControllerImpl : IBookingsController
 {
     public Task<ActionResult<BookingConfirmation>> CreateAsync(
         CreateBookingRequest body,
