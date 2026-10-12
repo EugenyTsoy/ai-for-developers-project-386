@@ -1,3 +1,6 @@
+using CallBooking.Api.Api;
+using CallBooking.Api.Generated;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -5,6 +8,12 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+
+// Register the handwritten API-boundary adapters behind the generated
+// controller seams. These are placeholder proof-of-seam implementations only.
+builder.Services.AddScoped<IEventTypesController, EventTypesControllerImpl>();
+builder.Services.AddScoped<IBookingsController, BookingsControllerImpl>();
+builder.Services.AddScoped<ICalendarController, CalendarControllerImpl>();
 
 var app = builder.Build();
 
