@@ -1,0 +1,308 @@
+# CallBooking — спецификация MVP
+
+**Статус:** утверждено владельцем, редакция 1 от 2026-10-12. Готово к декомпозиции следующим этапом; реализация и создание реализационных тикетов в рамках этой карты не разрешены.
+
+**Карта:** [CallBooking: карта решений до утверждённой спецификации](https://github.com/EugenyTsoy/ai-for-developers-project-386/issues/6).
+
+**Контрольная точка:** [Проверка полноты и явное утверждение спецификации CallBooking](https://github.com/EugenyTsoy/ai-for-developers-project-386/issues/16).
+
+**Аудит:** [Утверждённая проверка полноты спецификации](callbooking-completeness-audit.md).
+
+Это консолидированное изложение уже утверждённых решений, не новая Resolution и не независимая машиночитаемая спецификация API. Деталь, обоснования и история каждого решения остаются в его issue. API предстоит выразить в authored TypeSpec; его запись и генерация не выполняются в рамках этого документа. При обнаружении расхождения с Resolution требуется явное обсуждение, а не молчаливая смена решения.
+
+## 1. Назначение и границы
+
+CallBooking позволяет гостю без аккаунта записаться на звонок к единственному заранее заданному владельцу календаря. Владелец создаёт типы событий и просматривает предстоящие бронирования по всем типам.
+
+Owner и Guest — роли пользовательских сценариев, не серверные identities и не модель разграничения доступа. API MVP не имеет authentication/authorization или security scheme. Прямой клиент технически может вызвать owner-операции и получить список с именами и email гостей; этот риск утверждён, скрытая защита не подразумевается.
+
+В объём входят пользовательские сценарии ниже, правила времени и доступности, контракт шести API-операций, Design First generation workflow, архитектурные границы и обязательные проверки приёмки.
+
+Вне объёма: аккаунты и авторизация, несколько владельцев, оплата, уведомления, внешние календари, отмена и перенос Booking, редактирование и удаление EventType, UI/API управления расписанием или timezone, пагинация и дополнительные пользовательские сценарии. Реализация и её декомпозиция — отдельный этап после утверждения.
+
+Основание: карта и [API-контракт CallBooking с TypeSpec как источником истины][api].
+
+## 2. Доменный словарь и сценарии
+
+Используется [GLOSSARY.md](../../GLOSSARY.md), включая сохранённые локальные изменения на момент аудита. Здесь не вводятся новые значения терминов.
+
+- **Guest (Гость):** выбирает EventType и свободный Slot, передаёт имя и email, создаёт Booking без входа.
+- **Owner (Владелец):** единственный заранее заданный профиль календаря.
+- **EventType (Тип события):** серверный стабильный id, название, необязательное описание и положительная целая длительность в минутах. Это не Booking.
+- **Slot (Слот):** временной интервал для бронирования.
+- **Booking (Запись на звонок):** сохранённый результат бронирования Slot с привязкой к EventType и данными гостя; «бронь» допустима в UI.
+- **Working Window (Рабочее окно):** непрерывный интервал внутри календарного дня владельца.
+- **Booking Window (Окно бронирования):** ближайшие 14 календарных дат, включая сегодня.
+- **Slot Grid (Сетка слотов):** допустимые старты от начала рабочего окна с шагом длительности выбранного типа.
+
+### 2.1. Владелец создаёт тип события
+
+Вводит `name`, опциональное `description`, целое `durationMinutes ≥ 1`. Название обязательно и непусто после trim; одинаковые названия допустимы. Сервер выдаёт непрозрачный неизменяемый строковый id; UUID не является обязательным представлением. Неправильный ввод не создаёт тип. Успех возвращает созданный EventType.
+
+Описание без значения отсутствует в выходном DTO. Произвольные доменные максимумы длины и длительности не вводятся. Длительность, не помещающаяся в рабочее окно, не запрещает создание типа: для него может не оказаться слотов.
+
+### 2.2. Гость выбирает тип и время
+
+Все созданные типы видны гостю независимо от наличия слотов. Показываются название, описание при наличии и длительность; id не требуется показывать. Для выбранного типа гость получает доступные слоты в Booking Window. Список — снимок, не резервирование. Отсутствие типов или свободных слотов — нормальный empty-state, не ошибка и не повод скрыть тип.
+
+### 2.3. Гость создаёт бронирование
+
+Передаёт выбранные `eventTypeId`, `start` и обязательные `name`, `email`. Имя и email обрабатываются с trim; обязательны непустые значения и допустимый email-формат. Телефона и комментария нет. `end` и `duration` клиент не задаёт: их выводит сервер из типа.
+
+Успех означает сохранённую Booking с серверным техническим id, типом, start/end и валидными данными гостя при выполнении текущей доступности и overlap-инварианта. Гость видит подтверждение выбранных даты и времени в timezone календаря; имя/email/id не добавляются в success UI и не возвращаются в BookingConfirmation.
+
+Неверные данные, неизвестный тип или недоступный слот не создают Booking. Для исчезнувшего слота гость получает исход «слот больше недоступен, выберите другой».
+
+### 2.4. Владелец видит предстоящие бронирования
+
+Все типы объединены в один список. Предстоящее означает строго `start > now`, по UTC-моментам; уже начавшееся и стартующее ровно сейчас не включается. Порядок — возрастание start. Показываются название типа, имя и email гостя, start–end в timezone календаря. Пустой список — явный empty-state. Отдельного статуса «идёт сейчас» нет.
+
+Основания: [Создание типов событий и список предстоящих бронирований][owner] и его опубликованное уточнение; [Данные гостя, валидация и результат бронирования][guest]; [Источник доступных часов, формирование слотов и окно 14 дней][availability].
+
+## 3. Время, интервалы и доступность
+
+### 3.1. Единая временная семантика
+
+- Один явно заданный IANA timezone из backend-конфигурации определяет локальные даты, рабочие часы и отображение. Конкретная зона не фиксируется доменным правилом.
+- Все API-моменты — ISO 8601 UTC с `Z`. Клиент получает timezone из CalendarInfo и форматирует явно в нём, не в ambient timezone браузера. Пояс обозначается в UI.
+- Длительность — реально прошедшие минуты. `end = start + duration` на UTC timeline, в том числе при DST.
+- Интервалы полуоткрытые `[start, end)`. Пересечение: `startA < endB && startB < endA`.
+- Любое пересечение запрещено по всем типам одного владельца. Совпадение start конфликтует; соседство `endA = startB` допустимо, буфера нет.
+- Переход через местную полночь не разрывает интервал и не ослабляет overlap-инвариант. Текущая модель рабочих окон при этом не поддерживает ночное окно.
+- UI/API изменения timezone нет. Если конфигурацию позже изменят, существующие UTC-моменты нельзя молча сдвинуть или переинтерпретировать.
+
+### 3.2. Расписание и канонические слоты
+
+Расписание фиксированное недельное, из конфигурации профиля. На день недели — одно рабочее окно `[open, close)` с `open < close` внутри одного локального дня либо нет окна. Несколько окон, перерывы и ночные окна не поддерживаются. Конкретные дни и часы — конфигурация, не обязательные 09:00–18:00.
+
+Для конкретной даты локальные границы разрешаются в openInstant и closeInstant по политике DST ниже. Для длительности `d` и целых `k ≥ 0`:
+
+- `start(k) = openInstant + k*d`;
+- `end(k) = start(k) + d`;
+- кандидат включается только при `start(k) ≥ openInstant` и `end(k) ≤ closeInstant`.
+
+Сетка строится по реально прошедшему времени, не перепривязывается к now. Неполный последний слот отбрасывается. Если d больше реальной длины окна, слотов нет. Квантование стартов — доменная семантика, не выбор UI.
+
+Примечание аудита: в исходном решении после корректных двух условий приведено ошибочное сокращение `k*d <= closeInstant - openInstant`. Этот документ использует утверждённое правило полного вхождения и пример отбрасывания неполного слота, а не ошибочную алгебраическую эквивалентность; новая политика доступности не вводится.
+
+### 3.3. Окно бронирования и актуальность
+
+Booking Window — `[начало локальной даты сегодня, начало локальной даты сегодня+14)`. Это 14 календарных дат, не 336 часов. Для границы берётся первый валидный instant локальной даты (timezone-aware start-of-day).
+
+Доступный слот целиком находится в Working Window и Booking Window, имеет `start > now` и не пересекает ни одну Booking любых типов. Равенство end верхней границе допускается полуоткрытой семантикой; start на границе «сегодня+14» исключается.
+
+Сегодня бронировать можно; дополнительного lead time нет. Слот ровно сейчас недоступен. Нулевой результат нормален при занятом расписании, нерабочем дне или слишком большой d.
+
+### 3.4. DST
+
+- Несуществующая местная граница open/close: окно на эту дату не определено, день нерабочий; автоматического сдвига нет.
+- Неоднозначная граница: open — ранний instant, close — поздний instant, максимальный пролёт.
+- Сетка идёт по timeline: несуществующие местные старты не возникают. Повторяющаяся местная метка различает два UTC-момента; вариант включается только при выполнении канонической сетки и остальных правил доступности.
+- UI различает повторяющиеся местные метки по UTC offset, например `02:00 UTC+02:00` и `02:00 UTC+01:00`.
+- DST меняет реальную длину окна и может менять число слотов. Число не фиксируется независимо от d и границ.
+- Примеры решения: spring-forward 02:00→03:00, d=45: `00:00, 00:45, 01:30, 03:15, 04:00…`; fall-back 03:00→02:00, d=60: два соседних варианта `02:00(+02:00)` и `02:00(+01:00)`.
+
+Основания: [Часовой пояс и правило пересечения бронирований][time], [Источник доступных часов, формирование слотов и окно 14 дней][availability], [Стратегия тестирования и проверяемые критерии приёмки][tests].
+
+## 4. Атомарность и повторная отправка
+
+Сервер — единственный авторитетный источник защиты. Создание Booking — атомарный check-and-create: получение авторитетного типа и длительности, вычисление end, повторная проверка доступности, проверка всех пересечений и сохранение выполняются без окна гонки между state-dependent проверкой и записью. Чистые проверки имени/email не обязаны находиться в атомарной секции.
+
+В зафиксированном состоянии никогда не существует двух пересекающихся Booking владельца. UI, listing и выбор Slot не обеспечивают эту гарантию. Проигравший запрос не создаёт Booking и получает «слот больше недоступен».
+
+Идемпотентность создания не вводится. Повторный запрос после фактически успешной записи с потерянным ответом может получить 409 вместо первоначального подтверждения. Этот UX-риск принят. Предотвращение двойного submit — возможная UI-мера, не серверная гарантия; автоматический безопасный retry и exactly-once не обещаются.
+
+Хранилище, ORM, транзакционная изоляция, locks и конкретная техника обеспечения инварианта оставлены реализации.
+
+Основания: [Атомарная защита от конкурирующих бронирований][atomicity], [API-контракт CallBooking с TypeSpec как источником истины][api].
+
+## 5. API-контракт
+
+### 5.1. Операции
+
+JSON; общий `/api`, без версии. Пути kebab-case, модели PascalCase, поля camelCase. Полные коллекции, без пагинации.
+
+| Метод и путь | Вход | Успех | Предметные/контрактные отказы |
+|---|---|---|---|
+| `GET /api/event-types` | — | 200, `EventType[]` | — |
+| `POST /api/event-types` | `CreateEventTypeRequest` | 201, `EventType` | 400 |
+| `GET /api/event-types/{eventTypeId}/slots` | id типа | 200, `Slot[]` | 404 |
+| `POST /api/bookings` | `CreateBookingRequest` | 201, `BookingConfirmation` | 400, 404, 409 |
+| `GET /api/bookings/upcoming` | — | 200, `UpcomingBooking[]` | — |
+| `GET /api/calendar` | — | 200, `CalendarInfo` | — |
+
+Таблица перечисляет применимые согласованные исходы, не расширяется одинаковыми кодами для всех операций. Пустая коллекция — `200 []`. Endpoint-ов чтения EventType/Booking по id нет. Создание Booking возвращает подтверждение в теле, без Location, поскольку чтения Booking по id нет.
+
+### 5.2. Публичные DTO
+
+| DTO | Поля |
+|---|---|
+| `EventType` | `id: string`, `name: string`, `description?: string`, `durationMinutes: int32 ≥ 1` |
+| `CreateEventTypeRequest` | `name: string`, `description?: string`, `durationMinutes: int32 ≥ 1`; id отсутствует |
+| `Slot` | `start`, `end`: UTC ISO 8601 `Z` |
+| `CreateBookingRequest` | `eventTypeId: string`, `start`: UTC `Z`, `name: string`, `email: string`; все обязательны |
+| `BookingConfirmation` | только `start`, `end`: UTC `Z` |
+| `UpcomingBooking` | `eventTypeName`, `guestName`, `guestEmail`: string; `start`, `end`: UTC `Z` |
+| `CalendarInfo` | `timezone: string`, IANA identifier из backend-конфигурации |
+| `ProblemDetails` | обязательны `status: int32`, `title: string`; опциональны `detail: string`, `type: url`, `instance: url` |
+
+`description` опционально, а не обязательное nullable-поле; без описания выходное поле отсутствует. `UpcomingBooking` не содержит id/eventTypeId, `BookingConfirmation` не содержит данных гостя и типа. Внутренний технический Booking id существует, но не публикуется этими DTO.
+
+### 5.3. Валидация и ошибки
+
+RFC 9457, `application/problem+json`. Обязательны status и title; status совпадает с HTTP-кодом. detail/type/instance опциональны; custom code и другие custom-поля не вводятся. detail не является локализованным UI-текстом: пользовательское сообщение задаёт frontend по исходу/HTTP-статусу.
+
+- **400:** плохой JSON, неверные типы, отсутствующее обязательное поле, имя пустое после trim, недопустимый email, durationMinutes не целое/≤0, start не парсится/не UTC с Z, start не принадлежит канонической сетке выбранного типа.
+- **404:** неизвестный eventTypeId при получении слотов или создании Booking.
+- **409:** канонический выбор недоступен в текущем состоянии: пересечение/занятость/race, start≤now, выход из актуального Booking Window.
+
+Статическая схема выражает поля, типы, required/optional, int32 minimum=1, email-формат, маршруты, статусы и ProblemDetails. Серверные runtime-правила: trim→непустое, UTC-Z enforcement, grid/расписание/Booking Window, start>now, end из типа, пересечения, атомарность и timezone/DST. Бизнес-инварианты описываются в TypeSpec через `@doc`, но не генерируются как бизнес-код.
+
+Максимумы строк, точный email regex, приоритет нескольких одновременно нарушенных проверок и обработка лишних input-полей не устанавливаются новым требованием этой сборки. Выбранная реализация не должна ослаблять согласованные обязательность, форматы и применимые исходы.
+
+Основание: [API-контракт CallBooking с TypeSpec как источником истины][api].
+
+## 6. Design First, ownership и архитектурные границы
+
+`TypeSpec → OpenAPI → {frontend, backend}`. TypeSpec — единственный вручную редактируемый источник контракта; OpenAPI — generated derived canonical wire-contract, не второй source of truth. Изменения начинаются в TypeSpec; generated вручную не правится; ручные зеркальные DTO не поддерживаются.
+
+- **Authored:** TypeSpec и настройки инструментария.
+- **Derived/generated:** OpenAPI, frontend schema.d.ts, backend Contract.g.cs; воспроизводимы, помечены как generated и отделены от рукописного кода.
+- **Handwritten:** UI/state/formatting, frontend infra-адаптер, backend API boundary и маппинг, application/domain, infrastructure/persistence. Перегенерация не уничтожает их.
+
+Backend: `presentation/API → application → domain`; presentation может зависеть от generated contract. Domain/application не зависят от transport DTO, ProblemDetails, HTTP codes/routes/verbs/content types, wire-строк ISO-Z или presentation-форматирования в timezone. Domain/application оперируют absolute instant/interval и бизнес-исходами. Presentation переводит их в HTTP; malformed/schema-invalid input может быть остановлен до domain.
+
+Contract model ≠ domain model — жёсткий инвариант. Contract model ≠ UI model — концептуальная граница: generated DTO можно использовать напрямую в простом read-only UI, если transport shape соответствует потребности UI. Отдельный view model/mapping вводится только когда существует реальная semantic/shape difference. Такая разница является основанием для отдельной presentation model, но не вводит обязательный mapper-класс или конкретный mapping pattern.
+
+Frontend SDK framework-agnostic, без React/hooks; покрывает все операции, модели и ProblemDetails, различает success / HTTP contract error / transport failure. Не дублируется contract-specific HTTP plumbing. Малый handwritten адаптер допускается для base URL/headers/logging/test integration. Полная runtime schema validation payload не требуется. Wire-время не конвертируется молча в timezone браузера.
+
+Backend generated даёт DTO, schema-derived constraints и typed server surface всех операций, но не availability, overlap, check-and-create, ORM или repositories. Схемные ограничения не дублируются вручную; их runtime enforcement включается handwritten boundary. Преобразование contract↔application/domain находится на boundary.
+
+Основание: [Требования к генерируемым frontend и backend артефактам][artifacts].
+
+## 7. Генерация и воспроизводимость
+
+Утверждён инструментарий:
+
+1. `@typespec/openapi3` + `tsp compile` → OpenAPI **3.0.0**, LF.
+2. `openapi-typescript` → contract types; `openapi-fetch` — типизированный generic runtime client. Это принятый typed client из generated paths, не обязательная генерация отдельной функции на каждый endpoint. `date-time` в TypeScript остаётся string; branded Instant не вводится.
+3. **NSwag.ConsoleCore 14.7.1**, `openapi2cscontroller`, delegating-interface seam: интерфейсы, partial-контроллеры и DTO в одном файле, System.Text.Json + DataAnnotations. Handwritten interface implementation отдельно и подключается DI.
+
+Настройки NSwag, имена групп по первому tag и operationId `{interface}_{op}` берутся из [Воспроизводимая генерация всего контракта одной командой][generation]; не переопределяются сборкой. Schema-derived metadata NSwag сама по себе не гарантирует automatic 400: проверенный generated controller не имеет `[ApiController]`. Включение ASP.NET Core validation и boundary-маппинга — реализация без зеркальных ограничений. Для обоих POST authored TypeSpec явно выражает 201, не полагается на default 200 emitter-а.
+
+### 7.1. Команда и файлы
+
+Из корня репозитория **`npm run generate:contract`**, через `scripts/generate-contract.mjs`:
+
+1. Очистить только derived output dirs.
+2. TypeSpec compile.
+3. Generate frontend types из OpenAPI.
+4. `nswag run nswag.json` из того же OpenAPI.
+
+Fail-fast на любом сбое; удаление устаревших generated результатов не затрагивает handwritten. Предварительно выполняются root `npm ci` и `dotnet tool restore`; они не входят в каноническую команду генерации.
+
+| Назначение | Путь |
+|---|---|
+| Authored TypeSpec/config | `contract/main.tsp`, `contract/tspconfig.yaml` |
+| Generated OpenAPI | `contract/openapi/callbooking.openapi.yaml` |
+| Generated frontend types | `src/callbooking.web/src/api/generated/schema.d.ts` |
+| Handwritten frontend adapter | `src/callbooking.web/src/api/client.ts` |
+| Generated backend | `src/CallBooking.Api/Generated/Contract.g.cs` |
+| Generation entrypoint | `scripts/generate-contract.mjs` |
+| Root npm pins | `package.json`, `package-lock.json` |
+| .NET tool pin | `.config/dotnet-tools.json` |
+
+Все три derived artifact коммитятся. Root package/lock фиксируют точные версии compiler/http/openapi3/openapi-typescript; frontend package/lock — openapi-fetch; локальный .NET tool manifest — NSwag 14.7.1. Отдельный contract/package.json не создаётся. Конкретные ещё не записанные npm pin-значения фиксируются при реализации, не выбираются этой сборкой.
+
+### 7.2. Determinism и CI drift
+
+Одинаковый checkout с pinned tools даёт эквивалентный repository result. Не обещается raw byte-for-byte совпадение Windows/Linux из-за NSwag OS-native line endings; `.gitattributes` устанавливает canonical LF generated-артефактов.
+
+Job `contract-drift`: чистый checkout → restore pinned tools → generate:contract → пустой `git status --porcelain` на generated-путях. modified/deleted/untracked означают drift; одного git diff недостаточно. Build/test-джобы компилируют committed generated artifacts; dev/run не требует предварительного генератора.
+
+Сохраняются repo constraints: .NET 10, Node 24 в CI, restore/build отдельных .csproj в Linux, не solution с .esproj. Фактический frontend CI: `npm ci → lint → npm test → build`. Hexlet workflow не изменяется. Проверки бесплатными GitHub-hosted runners, без платного сервиса.
+
+Frontend adapter имеет утверждённую поверхность: `{ok:true, value} | {ok:false, kind:'http', status, problem} | {ok:false, kind:'transport', cause}` поверх openapi-fetch. UI форматирует явно через `formatInstant(isoUtc, timezone)`.
+
+Основания: [Воспроизводимая генерация всего контракта одной командой][generation], [Стратегия тестирования и проверяемые критерии приёмки][tests], AGENTS.md и текущий ci.yml.
+
+## 8. Проверки и критерии приёмки
+
+### 8.1. Обязательные уровни
+
+1. **Доменные unit:** без I/O, grid/end/overlap/Booking Window/start>now/DST и guest validation.
+2. **API integration:** WebApplicationFactory, полный pipeline до хранилища; статусы, состав/типы DTO, ProblemDetails, runtime conformance, атомарность.
+3. **Frontend component:** Vitest + RTL + jsdom; loading/error/empty/success, ошибки имени/email, timezone formatting без browser-local конвертации.
+4. **CI contract/generation/architecture:** успешная одна команда, regen-and-check drift, минимальный architecture guard.
+
+Backend now — через System.TimeProvider, замороженный в тестах, без wall-clock зависимости. Фиксируются IANA timezone, now и расписание; fixtures включают DST. TimeZoneInfo (ICU) достаточно, NodaTime не вводится. Эфемерное изолированное хранилище/сброс на тест с seeding через тестовый шов; shared mutable state между тестами нет.
+
+### 8.2. Проверяемые сценарии
+
+| Критерий | Обязательное доказательство | Источник |
+|---|---|---|
+| Типы читаются и создаются | GET 200 с EventType[]/[]; POST 201 с серверным id; одинаковые названия допустимы; отсутствующее описание допустимо; пустое имя, нестроковое описание, нецелая/≤0 длительность → 400, без создания | Сценарии владельца; API; стратегия тестирования |
+| Гость видит тип даже без слотов | Тип остаётся в списке; отсутствие доступности отображается empty-state | Сценарии владельца; availability |
+| Slots соответствуют сетке и доступности | GET 200 Slot[]/[], UTC-Z start/end, end=start+d; неизвестный тип → 404; нет неполных и пересекающихся слотов | Availability; время; API |
+| Создаётся только валидная Booking | POST 201, тело ровно start/end; сохранены тип и валидные данные гостя; end вычислен сервером | Данные гостя; API |
+| Отказы Booking не создают запись | 400 для malformed/required/type/name/email/start-Z/off-grid; 404 неизвестный тип; 409 overlap/race/start≤now/выход из актуального окна | API; атомарность |
+| Upcoming соответствует определению | GET 200 UpcomingBooking[]/[]; только start>now; порядок start; название типа, имя/email, start/end | Сценарии владельца с уточнением; API |
+| Авторитетный timezone доступен | GET calendar 200 с IANA timezone; frontend явно использует его | Время; API |
+| Ошибки контрактны | application/problem+json; обязательны status/title; status=HTTP; optional detail/type/instance; без custom code | API; стратегия тестирования |
+| Интервалы безопасны | Одинаковое начало и пересечение разных типов конфликтуют; соседние интервалы допустимы; полночь не разрывает overlap | Время; availability |
+| Границы окна соблюдены | Сегодня включён; сегодня+14 исключён; start=now исключён; неполный край рабочего окна отбрасывается; d больше окна даёт ноль | Availability |
+| DST детерминирован | Невалидная граница окна выключает дату без сдвига; ambiguous open ранний/close поздний; сетка по timeline; повторяющиеся варианты различаются offset и проходят общие фильтры | Время; availability; стратегия тестирования |
+| 30-минутные слоты учитывают бронь другого типа | Бронь 10:00–11:00 блокирует 10:00 и 10:30, но не соседние 09:30 и 11:00 при соответствующем расписании/grid | Availability |
+| Нет гонки создания | Последовательный overlap → 409; N валидных конкурентных запросов на свободный слот: ровно один 201, остальные 409, ровно одна сохранённая бронь | Атомарность; стратегия тестирования |
+| Runtime соответствует DTO | Интеграционные проверки статуса и присутствия/типов полей; компиляция generated не заменяет эти проверки | Стратегия тестирования |
+| Generated воспроизводим | Успешный generate:contract после restore; чистые generated-пути по porcelain после regen на clean checkout, включая untracked | Генерация; стратегия тестирования |
+| Архитектурный запрет действует | Compile-time границы и минимальный CI guard запрещённых leakage из раздела 6; искусственное нарушение хотя бы одной зависимости проваливает проверку | Артефакты; стратегия тестирования |
+| UI отражает результат | loading/error/empty/success, неверные имя/email, исчезнувший слот, подтверждение даты/времени и owner-список; timezone/offset отображаются явно | Сценарии; время; стратегия тестирования |
+
+Race-проверка не привязана к порядку завершения запросов. Одновременный старт сам по себе не считается доказательством пересечения критических секций; проверяется конечный инвариант. Отдельный продуктовый contention-injection шов не обязателен.
+
+Проверка полуночи относится к общей функции overlap на интервалах, не вводит создание ночного рабочего окна. DST fixture проверяет правила и UTC-интервалы, не заранее назначенное универсальное количество слотов.
+
+Architecture enforcement — только leakage из раздела 6, не blanket-запреты. Структура проектов/namespaces и инструмент guard выбираются при реализации; эффективность подтверждается негативным/mutation-тестом.
+
+Опциональны: Playwright browser E2E, MSW (достаточен fake client), отдельный OpenAPI conformance framework/snapshot, numeric coverage gate, snapshot-тесты. Не вводить по умолчанию. NodaTime и дополнительная инфраструктура не требуются.
+
+Основание всех критериев и уровней: [Стратегия тестирования и проверяемые критерии приёмки][tests], с доменными/API основаниями в разделах 2–7. Эти критерии — требования будущей приёмки, не заявление о прошедших тестах.
+
+## 9. Контекст существующего репозитория и допустимые детали реализации
+
+На момент аудита HEAD `a2c5ca45e4108841853510aac0b159d207a2471f`: ASP.NET Core net10.0 с WeatherForecast-заготовкой, React/TypeScript/Vite с главной и заглушками; бизнес-операции ещё не реализованы. Это исходное состояние, не основание исключать утверждённые сценарии.
+
+[ADR о клиентской маршрутизации](../adr/0001-client-routing-with-placeholder-pages.md) сохраняет BrowserRouter, `/`, `/booking`, `/events`, общую шапку и навигацию. Ограничение содержимого заглушками относится к прежнему шагу, не запрещает новый MVP. SPA fallback прямо оставлен инфраструктурной задачей будущего этапа. Место и layout owner-формы создания типа отдельно не навязываются этой сборкой: обязательны сценарий и критерии, не новый URL.
+
+Текст главной о «фиксированных 30-минутных слотах с 09:00 до 18:00» из прежнего статического референса не становится доменным правилом новой карты. Его согласование с реализуемым поведением — работа будущего этапа, не правка утверждённых duration/расписания и не изменение главной в этой сессии.
+
+Без нового owner-решения могут выбираться: хранилище/ORM и конкретный concurrency mechanism при сохранении инварианта; namespace/project layout; backend validation wiring; точные npm pins; стандартная техническая email-validation стратегия; внутреннее представление id; base URL/proxy/CORS wiring; компоненты и layout сценариев; код guard/test fixtures. Они не должны менять шесть операций, DTO/ошибки, доменные правила или обязательные проверки. Новые пользовательские ограничения вместо этих деталей требуют отдельного согласования.
+
+## 10. Контрольная точка утверждения
+
+Смысловых блокеров по аудиту не выявлено. Владелец явно утвердил редакцию 1 спецификации и completeness audit после финального review checkpoint и исправления формулировки §6 без обязательного mapper-класса или mapping pattern. Спецификация готова к декомпозиции следующим этапом; реализация и реализационные тикеты не входят в эту сессию.
+
+Владелец явно разрешил публикацию финальной Resolution и закрытие вопроса утверждения и карты. Утверждённые спецификация и аудит фиксируются отдельными артефактами в git; Resolution вопроса утверждения ссылается на их неизменяемую редакцию по commit SHA. Карта остаётся индексом: только краткий итог со ссылкой на Resolution; устаревший пункт «Not yet specified» удаляется без новых вопросов.
+
+## Утверждённые первоисточники
+
+- [Часовой пояс и правило пересечения бронирований][time].
+- [Создание типов событий и список предстоящих бронирований][owner]; [явное уточнение данных гостя в owner-списке](https://github.com/EugenyTsoy/ai-for-developers-project-386/issues/8#issuecomment-6112758216).
+- [Данные гостя, валидация и результат бронирования][guest].
+- [Источник доступных часов, формирование слотов и окно 14 дней][availability].
+- [Атомарная защита от конкурирующих бронирований][atomicity].
+- [API-контракт CallBooking с TypeSpec как источником истины][api].
+- [Требования к генерируемым frontend и backend артефактам][artifacts].
+- [Воспроизводимая генерация всего контракта одной командой][generation].
+- [Стратегия тестирования и проверяемые критерии приёмки][tests].
+
+[time]: https://github.com/EugenyTsoy/ai-for-developers-project-386/issues/7#issuecomment-6111423437
+[owner]: https://github.com/EugenyTsoy/ai-for-developers-project-386/issues/8#issuecomment-6112396942
+[guest]: https://github.com/EugenyTsoy/ai-for-developers-project-386/issues/9#issuecomment-6112758202
+[availability]: https://github.com/EugenyTsoy/ai-for-developers-project-386/issues/10#issuecomment-6112621550
+[atomicity]: https://github.com/EugenyTsoy/ai-for-developers-project-386/issues/11#issuecomment-6112849176
+[api]: https://github.com/EugenyTsoy/ai-for-developers-project-386/issues/12#issuecomment-6113093852
+[artifacts]: https://github.com/EugenyTsoy/ai-for-developers-project-386/issues/13#issuecomment-6122930500
+[generation]: https://github.com/EugenyTsoy/ai-for-developers-project-386/issues/14#issuecomment-6123726928
+[tests]: https://github.com/EugenyTsoy/ai-for-developers-project-386/issues/15#issuecomment-6124123357

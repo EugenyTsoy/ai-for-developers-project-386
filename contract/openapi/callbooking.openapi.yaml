@@ -1,0 +1,301 @@
+openapi: 3.0.0
+info:
+  title: CallBooking API
+  version: 0.0.0
+tags:
+  - name: EventTypes
+  - name: Bookings
+  - name: Calendar
+paths:
+  /api/bookings:
+    post:
+      operationId: Bookings_Create
+      description: Create a booking for an available slot.
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingConfirmation'
+        '400':
+          description: An RFC 9457 problem detail with HTTP 400 Bad Request.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: An RFC 9457 problem detail with HTTP 404 Not Found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: An RFC 9457 problem detail with HTTP 409 Conflict.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      tags:
+        - Bookings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookingRequest'
+  /api/bookings/upcoming:
+    get:
+      operationId: Bookings_Upcoming
+      description: List upcoming bookings across all event types.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UpcomingBooking'
+      tags:
+        - Bookings
+  /api/calendar:
+    get:
+      operationId: Calendar_Get
+      description: Get the calendar's authoritative timezone and metadata.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalendarInfo'
+      tags:
+        - Calendar
+  /api/event-types:
+    get:
+      operationId: EventTypes_List
+      description: List all event types.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventType'
+      tags:
+        - EventTypes
+    post:
+      operationId: EventTypes_Create
+      description: Create a new event type.
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventType'
+        '400':
+          description: An RFC 9457 problem detail with HTTP 400 Bad Request.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      tags:
+        - EventTypes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEventTypeRequest'
+  /api/event-types/{eventTypeId}/slots:
+    get:
+      operationId: EventTypes_Slots
+      description: List the available slots for an event type within the booking window.
+      parameters:
+        - name: eventTypeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Slot'
+        '404':
+          description: An RFC 9457 problem detail with HTTP 404 Not Found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      tags:
+        - EventTypes
+components:
+  schemas:
+    BookingConfirmation:
+      type: object
+      required:
+        - start
+        - end
+      properties:
+        start:
+          type: string
+          format: date-time
+          description: UTC ISO-8601 instant with Z suffix.
+        end:
+          type: string
+          format: date-time
+          description: UTC ISO-8601 instant with Z suffix.
+      description: Minimal confirmation returned after a booking is created.
+    CalendarInfo:
+      type: object
+      required:
+        - timezone
+      properties:
+        timezone:
+          type: string
+          description: IANA timezone identifier from backend configuration, used for all display formatting.
+      description: Calendar metadata for the single owner.
+    CreateBookingRequest:
+      type: object
+      required:
+        - eventTypeId
+        - start
+        - name
+        - email
+      properties:
+        eventTypeId:
+          type: string
+          description: Identifier of the selected event type.
+        start:
+          type: string
+          format: date-time
+          description: UTC ISO-8601 instant with Z suffix; the requested slot start.
+        name:
+          type: string
+          description: Required, non-empty after trim.
+        email:
+          type: string
+          format: email
+          description: Required valid email address.
+      description: Request body for creating a booking.
+    CreateEventTypeRequest:
+      type: object
+      required:
+        - name
+        - durationMinutes
+      properties:
+        name:
+          type: string
+          description: Required, non-empty after trim.
+        description:
+          type: string
+          description: Optional description.
+        durationMinutes:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Positive integer duration in minutes.
+      description: Request body for creating an event type.
+    EventType:
+      type: object
+      required:
+        - id
+        - name
+        - durationMinutes
+      properties:
+        id:
+          type: string
+          description: Opaque, stable server-assigned identifier.
+        name:
+          type: string
+          description: Required, non-empty after trim.
+        description:
+          type: string
+          description: Optional description; omitted from the output when not provided.
+        durationMinutes:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Positive integer duration in minutes.
+      description: An event type that guests can book.
+    ProblemDetails:
+      type: object
+      required:
+        - status
+        - title
+      properties:
+        status:
+          type: integer
+          format: int32
+          description: HTTP status code of the error; matches the response status.
+        title:
+          type: string
+          description: Short, human-readable summary of the problem.
+        detail:
+          type: string
+          description: Human-readable explanation specific to this occurrence.
+        type:
+          type: string
+          format: uri
+          description: URI reference identifying the problem type.
+        instance:
+          type: string
+          format: uri
+          description: URI reference identifying this specific occurrence.
+      description: RFC 9457 problem details error body.
+    Slot:
+      type: object
+      required:
+        - start
+        - end
+      properties:
+        start:
+          type: string
+          format: date-time
+          description: UTC ISO-8601 instant with Z suffix.
+        end:
+          type: string
+          format: date-time
+          description: UTC ISO-8601 instant with Z suffix; end = start + authoritative duration.
+      description: A bookable time interval.
+    UpcomingBooking:
+      type: object
+      required:
+        - eventTypeName
+        - guestName
+        - guestEmail
+        - start
+        - end
+      properties:
+        eventTypeName:
+          type: string
+          description: Name of the booking's event type.
+        guestName:
+          type: string
+          description: Guest name.
+        guestEmail:
+          type: string
+          description: Guest email.
+        start:
+          type: string
+          format: date-time
+          description: UTC ISO-8601 instant with Z suffix.
+        end:
+          type: string
+          format: date-time
+          description: UTC ISO-8601 instant with Z suffix.
+      description: An upcoming booking shown in the owner's list.
