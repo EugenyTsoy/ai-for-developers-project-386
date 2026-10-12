@@ -4,11 +4,13 @@
   "version": "0.0.0",
   "description": "CallBooking — API contract tooling (TypeSpec → OpenAPI).",
   "scripts": {
-    "compile:contract": "tsp compile contract"
+    "compile:contract": "tsp compile contract",
+    "generate:frontend-types": "openapi-typescript contract/openapi/callbooking.openapi.yaml -o src/callbooking.web/src/api/generated/schema.d.ts"
   },
   "devDependencies": {
     "@typespec/compiler": "^1.17.0",
     "@typespec/http": "^1.17.0",
-    "@typespec/openapi3": "^1.17.0"
+    "@typespec/openapi3": "^1.17.0",
+    "openapi-typescript": "7.13.0"
   }
 }
