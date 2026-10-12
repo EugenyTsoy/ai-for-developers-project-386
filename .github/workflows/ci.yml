@@ -81,3 +81,35 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  contract-drift:
+    name: Contract drift
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore Node tools
+        run: npm ci
+
+      - name: Restore .NET tools
+        run: dotnet tool restore
+
+      - name: Generate contract
+        run: npm run generate:contract
+
+      - name: Verify no contract drift
+        run: npm run verify:contract-drift
