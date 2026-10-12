@@ -14,7 +14,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** @description Create a booking for an available slot. */
-        post: operations["createBooking"];
+        post: operations["Bookings_Create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -29,7 +29,7 @@ export interface paths {
             cookie?: never;
         };
         /** @description List upcoming bookings across all event types. */
-        get: operations["listUpcomingBookings"];
+        get: operations["Bookings_Upcoming"];
         put?: never;
         post?: never;
         delete?: never;
@@ -46,7 +46,7 @@ export interface paths {
             cookie?: never;
         };
         /** @description Get the calendar's authoritative timezone and metadata. */
-        get: operations["getCalendar"];
+        get: operations["Calendar_Get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -63,10 +63,10 @@ export interface paths {
             cookie?: never;
         };
         /** @description List all event types. */
-        get: operations["listEventTypes"];
+        get: operations["EventTypes_List"];
         put?: never;
         /** @description Create a new event type. */
-        post: operations["createEventType"];
+        post: operations["EventTypes_Create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -81,7 +81,7 @@ export interface paths {
             cookie?: never;
         };
         /** @description List the available slots for an event type within the booking window. */
-        get: operations["listSlots"];
+        get: operations["EventTypes_Slots"];
         put?: never;
         post?: never;
         delete?: never;
@@ -218,7 +218,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    createBooking: {
+    Bookings_Create: {
         parameters: {
             query?: never;
             header?: never;
@@ -269,7 +269,7 @@ export interface operations {
             };
         };
     };
-    listUpcomingBookings: {
+    Bookings_Upcoming: {
         parameters: {
             query?: never;
             header?: never;
@@ -289,7 +289,7 @@ export interface operations {
             };
         };
     };
-    getCalendar: {
+    Calendar_Get: {
         parameters: {
             query?: never;
             header?: never;
@@ -309,7 +309,7 @@ export interface operations {
             };
         };
     };
-    listEventTypes: {
+    EventTypes_List: {
         parameters: {
             query?: never;
             header?: never;
@@ -329,7 +329,7 @@ export interface operations {
             };
         };
     };
-    createEventType: {
+    EventTypes_Create: {
         parameters: {
             query?: never;
             header?: never;
@@ -362,7 +362,7 @@ export interface operations {
             };
         };
     };
-    listSlots: {
+    EventTypes_Slots: {
         parameters: {
             query?: never;
             header?: never;
