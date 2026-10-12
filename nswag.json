@@ -1,0 +1,31 @@
+{
+  "runtime": "Default",
+  "documentGenerator": {
+    "fromDocument": {
+      "url": "contract/openapi/callbooking.openapi.yaml",
+      "output": null
+    }
+  },
+  "codeGenerators": {
+    "openApiToCSharpController": {
+      "className": "{controller}",
+      "controllerBaseClass": "Microsoft.AspNetCore.Mvc.ControllerBase",
+      "controllerStyle": "Partial",
+      "controllerTarget": "AspNetCore",
+      "useCancellationToken": true,
+      "useActionResultType": true,
+      "routeNamingStrategy": "OperationId",
+      "operationGenerationMode": "MultipleClientsFromFirstTagAndOperationName",
+      "generateDtoTypes": true,
+      "generateModelValidationAttributes": true,
+      "generatePartialControllers": true,
+      "generateNullableReferenceTypes": true,
+      "generateOptionalPropertiesAsNullable": true,
+      "useRequiredKeyword": true,
+      "jsonLibrary": "SystemTextJson",
+      "responseArrayType": "System.Collections.Generic.ICollection",
+      "namespace": "CallBooking.Api.Generated",
+      "output": "src/CallBooking.Api/Generated/Contract.g.cs"
+    }
+  }
+}
