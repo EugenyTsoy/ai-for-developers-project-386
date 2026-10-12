@@ -1,14 +1,15 @@
 using CallBooking.Api.Generated;
 using Microsoft.AspNetCore.Mvc;
 
-namespace CallBooking.Api.Services;
+namespace CallBooking.Api.Api;
 
 /// <summary>
-/// Minimal proof-of-seam implementation for the generated
+/// Handwritten API-boundary adapter behind the generated
+/// <see cref="EventTypesController"/>. Implements the generated
 /// <see cref="IEventTypesController"/> delegating interface. Contains no
 /// business logic; responses are placeholders only.
 /// </summary>
-public sealed class EventTypesService : IEventTypesController
+public sealed class EventTypesControllerImpl : IEventTypesController
 {
     public Task<ActionResult<ICollection<EventType>>> ListAsync(
         CancellationToken cancellationToken = default)
