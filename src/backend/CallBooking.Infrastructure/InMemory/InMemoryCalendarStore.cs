@@ -27,6 +27,19 @@ namespace CallBooking.Infrastructure.InMemory;
 /// </remarks>
 public sealed class InMemoryCalendarStore : IInMemoryCalendarStore
 {
+    // One owner-wide gate shared by every request scope and every event type.
+    // Repository writes and reset participate, so none can interleave with
+    // authoritative check-and-create. Monitor is reentrant for callback writes.
+    private readonly object _writeGate = new();
+
+    public T Execute<T>(Func<T> operation)
+    {
+        lock (_writeGate)
+        {
+            return operation();
+        }
+    }
+
     private readonly ConcurrentDictionary<string, EventType> _eventTypes =
         new(StringComparer.Ordinal);
 
@@ -46,7 +59,10 @@ public sealed class InMemoryCalendarStore : IInMemoryCalendarStore
             throw new ArgumentNullException(nameof(eventType));
         }
 
-        _eventTypes[eventType.Id] = eventType;
+        lock (_writeGate)
+        {
+            _eventTypes[eventType.Id] = eventType;
+        }
     }
 
     public void AddBooking(Booking booking)
@@ -56,12 +72,18 @@ public sealed class InMemoryCalendarStore : IInMemoryCalendarStore
             throw new ArgumentNullException(nameof(booking));
         }
 
-        _bookings[booking.Id] = booking;
+        lock (_writeGate)
+        {
+            _bookings[booking.Id] = booking;
+        }
     }
 
     public void Reset()
     {
-        _eventTypes.Clear();
-        _bookings.Clear();
+        lock (_writeGate)
+        {
+            _eventTypes.Clear();
+            _bookings.Clear();
+        }
     }
 }
