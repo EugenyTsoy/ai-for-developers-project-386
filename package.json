@@ -5,7 +5,7 @@
   "description": "CallBooking — API contract tooling (TypeSpec → OpenAPI).",
   "scripts": {
     "compile:contract": "tsp compile contract",
-    "generate:frontend-types": "openapi-typescript contract/openapi/callbooking.openapi.yaml -o src/callbooking.web/src/api/generated/schema.d.ts",
+    "generate:frontend-types": "openapi-typescript contract/openapi/callbooking.openapi.yaml -o src/frontend/callbooking.web/src/api/generated/schema.d.ts",
     "generate:contract": "node scripts/generate-contract.mjs",
     "verify:contract-drift": "node scripts/verify-contract-drift.mjs"
   },

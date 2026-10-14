@@ -11,15 +11,15 @@ public class DomainBoundaryGuardTests
     private static string RepoRoot()
     {
         var dir = AppContext.BaseDirectory;
-        // tests/CallBooking.Architecture.Tests/bin/Release/net10.0/ -> repo root
-        return Path.GetFullPath(Path.Combine(dir, "..", "..", "..", "..", ".."));
+        // tests/backend/CallBooking.Architecture.Tests/bin/Release/net10.0/ -> repo root
+        return Path.GetFullPath(Path.Combine(dir, "..", "..", "..", "..", "..", ".."));
     }
 
     [Fact]
     public void Domain_sources_have_no_forbidden_transport_references()
     {
         var violations = ScanDirectory(
-            Path.Combine(RepoRoot(), "src", "CallBooking.Domain"),
+            Path.Combine(RepoRoot(), "src", "backend", "CallBooking.Domain"),
             label: "Domain").ToArray();
 
         Assert.True(
@@ -32,7 +32,7 @@ public class DomainBoundaryGuardTests
     public void Application_sources_have_no_forbidden_transport_references()
     {
         var violations = ScanDirectory(
-            Path.Combine(RepoRoot(), "src", "CallBooking.Application"),
+            Path.Combine(RepoRoot(), "src", "backend", "CallBooking.Application"),
             label: "Application").ToArray();
 
         Assert.True(
