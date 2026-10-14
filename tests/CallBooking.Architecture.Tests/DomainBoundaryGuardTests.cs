@@ -103,13 +103,60 @@ public class DomainBoundaryGuardTests
         try
         {
             var violations = BoundaryScanner.ScanFile("Application", withFullReference).ToArray();
+            // Exactly one violation per line even though "Microsoft.AspNetCore"
+            // and "Microsoft.AspNetCore.Mvc" both technically match.
+            Assert.Single(
+                violations,
+                v => v.Contains("Microsoft.AspNetCore", StringComparison.Ordinal)
+                    && !v.Contains("Microsoft.AspNetCore.Mvc", StringComparison.Ordinal));
+        }
+        finally
+        {
+            File.Delete(withFullReference);
+        }
+
+        // Path 4: forbidden alias to a generated type.
+        var withAlias = Path.Combine(Path.GetTempPath(), "leak-alias.cs");
+        File.WriteAllText(
+            withAlias,
+            """
+            namespace CallBooking.Application.Forbidden;
+            using LeakAlias = CallBooking.Api.Generated.EventType;
+            public static class Leak { }
+            """);
+
+        try
+        {
+            var violations = BoundaryScanner.ScanFile("Application", withAlias).ToArray();
+            Assert.Contains(
+                violations,
+                v => v.Contains("CallBooking.Api.Generated", StringComparison.Ordinal));
+        }
+        finally
+        {
+            File.Delete(withAlias);
+        }
+
+        // Path 5: forbidden `using static` of an MVC type.
+        var withStatic = Path.Combine(Path.GetTempPath(), "leak-using-static.cs");
+        File.WriteAllText(
+            withStatic,
+            """
+            namespace CallBooking.Application.Forbidden;
+            using static Microsoft.AspNetCore.Mvc.ControllerBase;
+            public static class Leak { }
+            """);
+
+        try
+        {
+            var violations = BoundaryScanner.ScanFile("Application", withStatic).ToArray();
             Assert.Contains(
                 violations,
                 v => v.Contains("Microsoft.AspNetCore", StringComparison.Ordinal));
         }
         finally
         {
-            File.Delete(withFullReference);
+            File.Delete(withStatic);
         }
     }
 

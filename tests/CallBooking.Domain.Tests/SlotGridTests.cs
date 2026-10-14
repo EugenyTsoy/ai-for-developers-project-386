@@ -12,7 +12,10 @@ public class SlotGridTests
         var opening = At("2026-01-01T09:00:00Z");
         var closing = At("2026-01-01T18:00:00Z");
 
-        var grid = SlotGrid.GenerateOpeningInstants(opening, closing, 30);
+        var grid = SlotGrid.GenerateOpeningInstants(
+            opening,
+            closing,
+            new PositiveDuration(30));
 
         Assert.Equal(18, grid.Count);
         Assert.Equal(opening.Utc, grid[0].Utc);
@@ -26,7 +29,10 @@ public class SlotGridTests
         var opening = At("2026-01-01T09:00:00Z");
         var closing = At("2026-01-01T18:35:00Z");
 
-        var grid = SlotGrid.GenerateOpeningInstants(opening, closing, 30);
+        var grid = SlotGrid.GenerateOpeningInstants(
+            opening,
+            closing,
+            new PositiveDuration(30));
 
         // 09:30, 10:00 ... 18:00 = 19 full slots fit, 18:30 would not end by 18:35.
         Assert.Equal(19, grid.Count);
@@ -40,18 +46,11 @@ public class SlotGridTests
         var opening = At("2026-01-01T09:00:00Z");
         var closing = At("2026-01-01T13:00:00Z");
 
-        var grid = SlotGrid.GenerateOpeningInstants(opening, closing, 250);
+        var grid = SlotGrid.GenerateOpeningInstants(
+            opening,
+            closing,
+            new PositiveDuration(250));
 
         Assert.Empty(grid);
-    }
-
-    [Fact]
-    public void Generate_rejects_non_positive_step()
-    {
-        var opening = At("2026-01-01T09:00:00Z");
-        var closing = At("2026-01-01T18:00:00Z");
-
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => SlotGrid.GenerateOpeningInstants(opening, closing, 0));
     }
 }
