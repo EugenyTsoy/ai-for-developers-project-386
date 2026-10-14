@@ -1,5 +1,6 @@
 using CallBooking.Api.Generated;
 using CallBooking.Application.Calendar;
+using CallBooking.Application.EventTypes;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CallBooking.Api.Api;
@@ -8,23 +9,37 @@ namespace CallBooking.Api.Api;
 /// Handwritten API-boundary adapter behind the generated
 /// <see cref="EventTypesController"/>. Implements the generated
 /// <see cref="IEventTypesController"/> delegating interface. Contains no
-/// business logic. Event type list/create remain placeholders for TK4.
+/// business logic.
 /// </summary>
-public sealed class EventTypesControllerImpl(ListAvailableSlots availableSlots) : IEventTypesController
+public sealed class EventTypesControllerImpl(
+    ListAvailableSlots availableSlots, CreateEventType createEventType, ListEventTypes listEventTypes) : IEventTypesController
 {
     public Task<ActionResult<ICollection<EventType>>> ListAsync(
         CancellationToken cancellationToken = default)
-        => Task.FromResult<ActionResult<ICollection<EventType>>>(new List<EventType>());
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var response = listEventTypes.Execute().Select(Map).ToList();
+        return Task.FromResult<ActionResult<ICollection<EventType>>>(new OkObjectResult(response));
+    }
 
     public Task<ActionResult<EventType>> CreateAsync(
         CreateEventTypeRequest body,
         CancellationToken cancellationToken = default)
-        => Task.FromResult<ActionResult<EventType>>(new EventType
-        {
-            Id = "placeholder",
-            Name = "placeholder",
-            DurationMinutes = 30
-        });
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var saved = createEventType.Execute(body.Name, body.Description, body.DurationMinutes);
+        return Task.FromResult<ActionResult<EventType>>(saved is null
+            ? ApiProblems.Create(StatusCodes.Status400BadRequest, "Invalid event type request.")
+            : new ObjectResult(Map(saved)) { StatusCode = StatusCodes.Status201Created });
+    }
+
+    private static EventType Map(CallBooking.Domain.Entities.EventType saved) => new()
+    {
+        Id = saved.Id,
+        Name = saved.Name,
+        Description = saved.Description,
+        DurationMinutes = saved.DurationMinutes
+    };
 
     public Task<ActionResult<ICollection<Slot>>> SlotsAsync(
         string eventTypeId,
