@@ -126,6 +126,66 @@
   font-size: clamp(28px, 4vw, 40px);
 }
 
+.booking-page {
+  padding-block: 48px;
+}
+
+.booking-page h1 {
+  margin: 0 0 20px;
+  font-size: clamp(28px, 4vw, 40px);
+}
+
+.booking-page h2 {
+  margin-top: 32px;
+  font-size: 22px;
+}
+
+.selection-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.selection-list li {
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.selection-list button {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #0f172a;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.selection-list button:hover {
+  border-color: #c2410c;
+}
+
+.selection-list button[aria-pressed="true"] {
+  border-color: #c2410c;
+  background: #fff0e6;
+}
+
+.selection-list button:focus-visible {
+  outline: 3px solid #0f172a;
+  outline-offset: 3px;
+}
+
+.booking-page [role="alert"] {
+  color: #b91c1c;
+}
+
 @media (max-width: 760px) {
   .container {
     width: calc(100% - 32px);

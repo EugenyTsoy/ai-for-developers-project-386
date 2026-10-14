@@ -1,4 +1,6 @@
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom'
+import type { ApiClient } from './api/client'
+import BookingPage from './BookingPage'
 import './App.css'
 
 function HomePage() {
@@ -18,7 +20,7 @@ function HomePage() {
       <aside className="features" aria-labelledby="features-title">
         <h2 id="features-title">Что доступно прямо сейчас</h2>
         <ul>
-          <li>Фиксированные 30-минутные слоты с 09:00 до 18:00.</li>
+          <li>Длительность звонка зависит от выбранного типа события.</li>
           <li>Проверка конфликта при бронировании.</li>
           <li>Просмотр предстоящих событий в отдельном разделе.</li>
         </ul>
@@ -36,7 +38,7 @@ function PlaceholderPage({ title }: { title: string }) {
   )
 }
 
-function App() {
+function App({ client }: { client?: ApiClient }) {
   return (
     <BrowserRouter>
       <header className="site-header">
@@ -57,7 +59,7 @@ function App() {
       <main className="container">
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/booking" element={<PlaceholderPage title="Запись на звонок" />} />
+          <Route path="/booking" element={<BookingPage client={client} />} />
           <Route path="/events" element={<PlaceholderPage title="Предстоящие события" />} />
         </Routes>
       </main>
