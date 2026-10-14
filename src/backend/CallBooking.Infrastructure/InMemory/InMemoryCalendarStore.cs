@@ -31,12 +31,39 @@ public sealed class InMemoryCalendarStore : IInMemoryCalendarStore
     // Repository writes and reset participate, so none can interleave with
     // authoritative check-and-create. Monitor is reentrant for callback writes.
     private readonly object _writeGate = new();
+    private readonly ICalendarWriteObserver? _writeObserver;
+
+    public InMemoryCalendarStore()
+    {
+    }
+
+    internal InMemoryCalendarStore(ICalendarWriteObserver writeObserver)
+    {
+        _writeObserver = writeObserver;
+    }
 
     public T Execute<T>(Func<T> operation)
     {
-        lock (_writeGate)
+        // Keep the same owner-wide, reentrant gate. A failed immediate entry
+        // lets internal test-host instrumentation observe real contention,
+        // rather than merely observing requests just before acquisition.
+        var entered = Monitor.TryEnter(_writeGate);
+        try
         {
+            if (!entered)
+            {
+                _writeObserver?.Contended();
+                Monitor.Enter(_writeGate, ref entered);
+            }
+            _writeObserver?.Entered();
             return operation();
+        }
+        finally
+        {
+            if (entered)
+            {
+                Monitor.Exit(_writeGate);
+            }
         }
     }
 
