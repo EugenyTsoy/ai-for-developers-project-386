@@ -16,7 +16,7 @@ public static class Availability
         {
             foreach (var slot in GetSlotGrid(calendar, today.AddDays(day), eventType))
             {
-                if (slot.Start > now && bookingWindow.Contains(slot) && !occupied.Any(slot.Overlaps))
+                if (IsCurrentlyAvailable(slot, now, bookingWindow, occupied))
                 {
                     available.Add(slot);
                 }
@@ -25,6 +25,11 @@ public static class Availability
 
         return available;
     }
+
+    /// <summary>Current-state filters only; canonical grid membership is checked separately.</summary>
+    public static bool IsCurrentlyAvailable(
+        TimeInterval slot, DateTimeOffset now, TimeInterval bookingWindow, IReadOnlyList<TimeInterval> occupied)
+        => slot.Start > now && bookingWindow.Contains(slot) && !occupied.Any(slot.Overlaps);
 
     public static TimeInterval GetBookingWindow(CalendarConfiguration calendar, DateTimeOffset now)
     {

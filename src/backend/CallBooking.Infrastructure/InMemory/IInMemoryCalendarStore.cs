@@ -25,7 +25,7 @@ namespace CallBooking.Infrastructure.InMemory;
 /// response DTO.
 /// </para>
 /// </remarks>
-public interface IInMemoryCalendarStore
+public interface IInMemoryCalendarStore : CallBooking.Application.Ports.ICalendarWriteScope
 {
     void AddEventType(EventType eventType);
 
