@@ -2,6 +2,13 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, test } from 'vitest'
 import App from './App'
+import { createApiClient } from './api/client'
+
+const client = createApiClient('http://api.example.test', async (request) => new Response(JSON.stringify(
+  new URL((request as Request).url).pathname === '/api/calendar' ? { timezone: 'Europe/Berlin' } : [],
+), {
+  headers: { 'content-type': 'application/json' },
+}))
 
 beforeEach(() => {
   window.history.replaceState(null, '', '/')
@@ -26,21 +33,22 @@ test('главная объясняет сервис и описывает во�
   expect(screen.getByText('БЫСТРАЯ ЗАПИСЬ НА ЗВОНОК')).toBeInTheDocument()
   expect(screen.getByText('Один экран, понятные слоты, быстрая бронь. Выберите время и запишитесь на звонок без лишних шагов.')).toBeInTheDocument()
   expect(screen.getByRole('heading', { name: 'Что доступно прямо сейчас' })).toBeInTheDocument()
-  expect(screen.getByText('Фиксированные 30-минутные слоты с 09:00 до 18:00.')).toBeInTheDocument()
+  expect(screen.getByText('Длительность звонка зависит от выбранного типа события.')).toBeInTheDocument()
   expect(screen.getByText('Проверка конфликта при бронировании.')).toBeInTheDocument()
   expect(screen.getByText('Просмотр предстоящих событий в отдельном разделе.')).toBeInTheDocument()
 })
 
 test.each(['шапка', 'основное действие'])('переход к записи через %s и возврат на главную', async (source) => {
   const user = userEvent.setup()
-  render(<App />)
+  render(<App client={client} />)
   const region = source === 'шапка' ? screen.getByRole('navigation') : screen.getByRole('main')
 
   await user.click(within(region).getByRole('link', { name: 'Записаться' }))
 
   expect(window.location.pathname).toBe('/booking')
   expect(screen.getByRole('heading', { name: 'Запись на звонок', level: 1 })).toBeInTheDocument()
-  expect(screen.getByText('Раздел пока не реализован')).toBeInTheDocument()
+  expect(screen.queryByText('Раздел пока не реализован')).not.toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Выберите тип события' })).toBeInTheDocument()
   expect(screen.queryByRole('heading', { name: 'Calendar' })).not.toBeInTheDocument()
   expect(within(screen.getByRole('navigation')).getByRole('link', { name: 'Предстоящие события' })).toBeInTheDocument()
 
