@@ -5,34 +5,56 @@ namespace CallBooking.Architecture.Tests;
 /// <summary>
 /// Minimal dependency scanner used by the architecture guard. Walks
 /// Domain/Application sources, strips comments, and reports every
-/// transport-layer reference that would leak design-time or wire
-/// concerns into the inner layers. Intentionally small: per the
-/// ticket, this is a minimal CI guard, not a Roslyn rule.
+/// transport-layer reference that would leak design-time or wiring
+/// concerns into the inner layers.
+///
+/// <para>
+/// What this guard detects (per AC20 of issue #19):
+/// <list type="bullet">
+///   <item>References to <c>CallBooking.Api.Generated</c>, via
+///   either <c>using</c> declaration (plain, <c>using static</c>, or
+///   <c>using alias = ...</c>) or fully-qualified type access.
+///   </item>
+///   <item>References into the <c>Microsoft.AspNetCore</c> namespace
+///   family — which carries <c>ProblemDetails</c>, controller
+///   attributes, HTTP verbs and content types, and the ASP.NET
+///   MVC / HTTP plumbing. A single prefix match per line keeps the
+///   guard from emitting duplicate reports.
+///   </item>
+/// </list>
+/// </para>
+///
+/// <para>
+/// What this guard does NOT cover, intentionally, because the ticket
+/// calls for a *minimal* guard: literal ISO-8601 wire strings
+/// (<c>"...Z"</c> format suffixes) and UI/presentation date
+/// formatting are runtime/review concerns. They are detectable by
+/// inspection, the integration tests, and the contract drift check,
+/// but not by a <c>using</c>-prefix scan.
+/// </para>
 /// </summary>
 internal static class BoundaryScanner
 {
-    private static readonly HashSet<string> ForbiddenUsingNamespaces = new(StringComparer.Ordinal)
-    {
-        "CallBooking.Api.Generated",
-    };
-
+    /// <summary>
+    /// Namespaces whose <c>using</c> declaration is forbidden in
+    /// Domain / Application sources.
+    /// </summary>
     private static readonly string[] ForbiddenUsingPrefixes =
     {
         "Microsoft.AspNetCore",
+        "CallBooking.Api.Generated",
     };
 
     /// <summary>
-    /// Fully qualified type references that are forbidden in Domain
-    /// and Application source: matching the prefix and the next
-    /// identifier character after the dot.
+    /// Namespace prefixes forbidden when referenced fully qualified
+    /// (without a <c>using</c> declaration). <c>Microsoft.AspNetCore</c>
+    /// covers every longer sibling (Mvc, Http, etc.) so children are
+    /// not listed; matches at most once per line to avoid duplicate
+    /// reports on the same access.
     /// </summary>
     private static readonly string[] ForbiddenReferencePrefixes =
     {
         "Microsoft.AspNetCore",
-        "Microsoft.AspNetCore.Mvc",
-        "Microsoft.AspNetCore.Mvc.Core",
-        "Microsoft.AspNetCore.Mvc.ModelBinding",
-        "Microsoft.AspNetCore.Http",
         "CallBooking.Api.Generated",
     };
 
@@ -52,8 +74,7 @@ internal static class BoundaryScanner
 
         for (var index = 0; index < lines.Length; index++)
         {
-            var line = lines[index];
-            foreach (var violation in ScanLine(label, path, index + 1, line))
+            foreach (var violation in ScanLine(label, path, index + 1, lines[index]))
             {
                 yield return violation;
             }
@@ -64,55 +85,72 @@ internal static class BoundaryScanner
     {
         var trimmed = line.TrimStart();
 
-        if (trimmed.StartsWith("using ", StringComparison.Ordinal))
+        if (LooksLikeUsingDeclaration(trimmed))
         {
-            foreach (var violation in CheckUsingDeclaration(label, path, lineNumber, trimmed))
+            var usingViolation = CheckUsingDeclaration(trimmed);
+            if (usingViolation is not null)
             {
-                yield return violation;
+                yield return $"{label}:{path}: line {lineNumber}: {usingViolation}";
             }
         }
 
         foreach (var prefix in ForbiddenReferencePrefixes)
         {
-            foreach (var violation in CheckFullyQualifiedReference(label, path, lineNumber, line, prefix))
+            if (ReferencePrefixAppearsPrefixed(line, prefix))
             {
-                yield return violation;
-            }
-        }
-    }
-
-    private static IEnumerable<string> CheckUsingDeclaration(string label, string path, int lineNumber, string trimmed)
-    {
-        var trailing = trimmed["using ".Length..].Trim();
-        var end = trailing.IndexOf(';');
-        if (end < 0)
-        {
-            yield break;
-        }
-
-        var ns = trailing[..end].Trim();
-        if (ForbiddenUsingNamespaces.Contains(ns))
-        {
-            yield return $"{label}:{path}: line {lineNumber}: forbidden using '{ns}'";
-            yield break;
-        }
-
-        foreach (var prefix in ForbiddenUsingPrefixes)
-        {
-            if (ns == prefix || ns.StartsWith(prefix + ".", StringComparison.Ordinal))
-            {
-                yield return $"{label}:{path}: line {lineNumber}: forbidden using '{ns}'";
+                yield return $"{label}:{path}: line {lineNumber}: forbidden reference to '{prefix}'";
+                // Don't iterate further — siblings of an already-flagged
+                // prefix would only produce duplicates here.
                 yield break;
             }
         }
     }
 
-    private static IEnumerable<string> CheckFullyQualifiedReference(
-        string label,
-        string path,
-        int lineNumber,
-        string line,
-        string prefix)
+    private static bool LooksLikeUsingDeclaration(string trimmed)
+    {
+        return trimmed.StartsWith("using ", StringComparison.Ordinal)
+            || trimmed.StartsWith("using\t", StringComparison.Ordinal);
+    }
+
+    private static string? CheckUsingDeclaration(string trimmed)
+    {
+        var body = trimmed["using".Length..].TrimStart();
+        if (body.StartsWith("static ", StringComparison.Ordinal))
+        {
+            body = body["static ".Length..].TrimStart();
+        }
+
+        var end = body.IndexOf(';');
+        if (end < 0)
+        {
+            return null;
+        }
+
+        var unaliased = body[..end].Trim();
+        var equalIdx = unaliased.IndexOf('=');
+        if (equalIdx >= 0)
+        {
+            // `using X = Y.Z;` — inspect the right-hand side only.
+            unaliased = unaliased[(equalIdx + 1)..].Trim();
+        }
+
+        return MatchForbiddenUsing(unaliased);
+    }
+
+    private static string? MatchForbiddenUsing(string ns)
+    {
+        foreach (var prefix in ForbiddenUsingPrefixes)
+        {
+            if (ns == prefix || ns.StartsWith(prefix + ".", StringComparison.Ordinal))
+            {
+                return $"forbidden using '{ns}'";
+            }
+        }
+
+        return null;
+    }
+
+    private static bool ReferencePrefixAppearsPrefixed(string line, string prefix)
     {
         var marker = prefix + ".";
         var idx = line.IndexOf(marker, StringComparison.Ordinal);
@@ -124,12 +162,13 @@ internal static class BoundaryScanner
 
             if (beforeOk && afterOk)
             {
-                yield return $"{label}:{path}: line {lineNumber}: forbidden reference to '{prefix}'";
-                yield break;
+                return true;
             }
 
             idx = line.IndexOf(marker, idx + 1, StringComparison.Ordinal);
         }
+
+        return false;
     }
 
     private static string StripComments(string source)

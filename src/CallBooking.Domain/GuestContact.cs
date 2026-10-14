@@ -14,7 +14,7 @@ public readonly partial record struct EmailAddress
     [GeneratedRegex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$")]
     private static partial Regex EmailRegex();
 
-    private readonly string _value;
+    private readonly string? _value;
 
     public EmailAddress(string value)
     {
@@ -36,7 +36,14 @@ public readonly partial record struct EmailAddress
         _value = trimmed;
     }
 
-    public string Value => _value ?? string.Empty;
+    /// <summary>
+    /// The trimmed address. Throws when read off a value that was
+    /// never constructed (i.e. <c>default(EmailAddress)</c>), instead
+    /// of silently returning an empty string.
+    /// </summary>
+    public string Value => _value
+        ?? throw new InvalidOperationException(
+            "EmailAddress default value is not a valid address; construct an instance first.");
 }
 
 /// <summary>
