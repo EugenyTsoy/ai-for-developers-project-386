@@ -1,5 +1,5 @@
 {
   "appHost": {
-    "path": "src/CallBooking.AppHost/CallBooking.AppHost.csproj"
+    "path": "src/host/CallBooking.AppHost/CallBooking.AppHost.csproj"
   }
 }

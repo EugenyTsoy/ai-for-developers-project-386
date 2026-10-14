@@ -4,29 +4,35 @@ Hexlet educational call-booking project. Prefer executable configuration and wor
 
 ## Structure
 
-- `src/CallBooking.AppHost/` — .NET Aspire orchestration entrypoint for the full local stack.
-- `src/CallBooking.Api/` — ASP.NET Core Web API.
-- `src/callbooking.web/` — React + TypeScript + Vite frontend; Visual Studio represents it as a JavaScript `.esproj`.
-- `tests/CallBooking.Api.Tests/` — xUnit integration tests using `WebApplicationFactory<Program>`.
+- `src/backend/` — `CallBooking.Api`, `CallBooking.Application`, `CallBooking.Domain`, and `CallBooking.Infrastructure` projects.
+- `src/host/CallBooking.AppHost/` — .NET Aspire orchestration entrypoint for the full local stack.
+- `src/frontend/callbooking.web/` — React + TypeScript + Vite frontend; Visual Studio represents it as a JavaScript `.esproj`.
+- `tests/backend/CallBooking.Api.Tests/` — xUnit integration tests using `WebApplicationFactory<Program>`.
+- `tests/backend/CallBooking.Architecture.Tests/` — Domain/Application boundary checks.
 
 ## Commands
 
 Run the full stack:
 
-    dotnet run --project src/CallBooking.AppHost
+    dotnet run --project src/host/CallBooking.AppHost
 
 Run backend tests:
 
-    dotnet test tests/CallBooking.Api.Tests/CallBooking.Api.Tests.csproj
+    dotnet test tests/backend/CallBooking.Api.Tests/CallBooking.Api.Tests.csproj
 
 Run only smoke tests:
 
-    dotnet test tests/CallBooking.Api.Tests/CallBooking.Api.Tests.csproj --filter "FullyQualifiedName~SmokeTests"
+    dotnet test tests/backend/CallBooking.Api.Tests/CallBooking.Api.Tests.csproj --filter "FullyQualifiedName~SmokeTests"
 
-Frontend, from `src/callbooking.web`:
+Run architecture tests:
+
+    dotnet test tests/backend/CallBooking.Architecture.Tests/CallBooking.Architecture.Tests.csproj
+
+Frontend, from `src/frontend/callbooking.web`:
 
     npm ci
     npm run lint
+    npm test
     npm run build
     npm run dev
 

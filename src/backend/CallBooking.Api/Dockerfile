@@ -12,10 +12,13 @@ EXPOSE 8081
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["src/CallBooking.Api/CallBooking.Api.csproj", "src/CallBooking.Api/"]
-RUN dotnet restore "./src/CallBooking.Api/CallBooking.Api.csproj"
+COPY ["src/backend/CallBooking.Api/CallBooking.Api.csproj", "src/backend/CallBooking.Api/"]
+COPY ["src/backend/CallBooking.Application/CallBooking.Application.csproj", "src/backend/CallBooking.Application/"]
+COPY ["src/backend/CallBooking.Domain/CallBooking.Domain.csproj", "src/backend/CallBooking.Domain/"]
+COPY ["src/backend/CallBooking.Infrastructure/CallBooking.Infrastructure.csproj", "src/backend/CallBooking.Infrastructure/"]
+RUN dotnet restore "./src/backend/CallBooking.Api/CallBooking.Api.csproj"
 COPY . .
-WORKDIR "/src/src/CallBooking.Api"
+WORKDIR "/src/src/backend/CallBooking.Api"
 RUN dotnet build "./CallBooking.Api.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 # This stage is used to publish the service project to be copied to the final stage

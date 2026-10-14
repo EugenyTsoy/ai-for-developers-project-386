@@ -25,7 +25,7 @@
       "jsonLibrary": "SystemTextJson",
       "responseArrayType": "System.Collections.Generic.ICollection",
       "namespace": "CallBooking.Api.Generated",
-      "output": "src/CallBooking.Api/Generated/Contract.g.cs"
+      "output": "src/backend/CallBooking.Api/Generated/Contract.g.cs"
     }
   }
 }
