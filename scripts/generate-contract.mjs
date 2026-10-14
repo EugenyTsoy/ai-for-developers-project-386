@@ -21,8 +21,8 @@ const nodeRequire = createRequire(import.meta.url);
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
 export const OPENAPI_FILE = 'contract/openapi/callbooking.openapi.yaml';
-export const FRONTEND_TYPES_FILE = 'src/callbooking.web/src/api/generated/schema.d.ts';
-export const BACKEND_CONTRACT_FILE = 'src/CallBooking.Api/Generated/Contract.g.cs';
+export const FRONTEND_TYPES_FILE = 'src/frontend/callbooking.web/src/api/generated/schema.d.ts';
+export const BACKEND_CONTRACT_FILE = 'src/backend/CallBooking.Api/Generated/Contract.g.cs';
 
 // Canonical generated outputs owned by this orchestrator (cleaned before
 // regeneration). Order mirrors the pipeline.
@@ -32,8 +32,8 @@ export const GENERATED_FILES = [OPENAPI_FILE, FRONTEND_TYPES_FILE, BACKEND_CONTR
 // purpose: they also surface untracked files a generator might leave behind.
 export const GENERATED_DIRS = [
   'contract/openapi',
-  'src/callbooking.web/src/api/generated',
-  'src/CallBooking.Api/Generated',
+  'src/frontend/callbooking.web/src/api/generated',
+  'src/backend/CallBooking.Api/Generated',
 ];
 
 function run(label, command, args) {
