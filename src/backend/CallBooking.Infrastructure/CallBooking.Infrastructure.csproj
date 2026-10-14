@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="CallBooking.Api.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\CallBooking.Application\CallBooking.Application.csproj" />
     <ProjectReference Include="..\CallBooking.Domain\CallBooking.Domain.csproj" />
   </ItemGroup>
