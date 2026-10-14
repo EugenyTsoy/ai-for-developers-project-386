@@ -33,6 +33,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<CalendarContext>();
 builder.Services.AddScoped<ListAvailableSlots>();
 builder.Services.AddScoped<CreateBooking>();
+builder.Services.AddScoped<ListUpcomingBookings>();
 builder.Services.AddScoped<CreateEventType>();
 builder.Services.AddScoped<ListEventTypes>();
 
@@ -46,7 +47,7 @@ builder.Services.AddScoped<IEventTypeRepository, InMemoryEventTypeRepository>();
 builder.Services.AddScoped<IBookingRepository, InMemoryBookingRepository>();
 
 // Register the handwritten API-boundary adapters behind the generated
-// controller seams. Upcoming remains a placeholder.
+// controller seams.
 builder.Services.AddScoped<IEventTypesController, EventTypesControllerImpl>();
 builder.Services.AddScoped<IBookingsController, BookingsControllerImpl>();
 builder.Services.AddScoped<ICalendarController, CalendarControllerImpl>();

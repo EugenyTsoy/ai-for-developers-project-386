@@ -8,9 +8,9 @@ namespace CallBooking.Api.Api;
 /// Handwritten API-boundary adapter behind the generated
 /// <see cref="BookingsController"/>. Implements the generated
 /// <see cref="IBookingsController"/> delegating interface. Contains no
-/// business logic. Upcoming remains a placeholder for its own ticket.
+/// business logic.
 /// </summary>
-public sealed class BookingsControllerImpl(CreateBooking createBooking) : IBookingsController
+public sealed class BookingsControllerImpl(CreateBooking createBooking, ListUpcomingBookings listUpcomingBookings) : IBookingsController
 {
     public Task<ActionResult<BookingConfirmation>> CreateAsync(
         CreateBookingRequest body,
@@ -39,5 +39,17 @@ public sealed class BookingsControllerImpl(CreateBooking createBooking) : IBooki
 
     public Task<ActionResult<ICollection<UpcomingBooking>>> UpcomingAsync(
         CancellationToken cancellationToken = default)
-        => Task.FromResult<ActionResult<ICollection<UpcomingBooking>>>(new List<UpcomingBooking>());
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ICollection<UpcomingBooking> upcoming = listUpcomingBookings.Execute()
+            .Select(entry => new UpcomingBooking
+            {
+                EventTypeName = entry.EventType.Name,
+                GuestName = entry.Booking.GuestName,
+                GuestEmail = entry.Booking.GuestEmail,
+                Start = entry.Booking.Start,
+                End = entry.Booking.End
+            }).ToArray();
+        return Task.FromResult<ActionResult<ICollection<UpcomingBooking>>>(new OkObjectResult(upcoming));
+    }
 }
