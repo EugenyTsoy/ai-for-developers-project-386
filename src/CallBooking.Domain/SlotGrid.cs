@@ -10,23 +10,16 @@ public static class SlotGrid
 {
     /// <summary>
     /// Enumerate the canonical slot starts for the given working window
-    /// and step (in minutes).
+    /// and step duration.
     /// </summary>
     /// <param name="opening">Opening UTC instant of the work day.</param>
     /// <param name="closing">Closing UTC instant of the work day.</param>
-    /// <param name="stepMinutes">Step in minutes; must be strictly positive.</param>
+    /// <param name="step">Step anchored to <paramref name="opening"/>.</param>
     public static IReadOnlyList<Instant> GenerateOpeningInstants(
         Instant opening,
         Instant closing,
-        int stepMinutes)
+        PositiveDuration step)
     {
-        if (stepMinutes < 1)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(stepMinutes),
-                "Step must be at least one minute.");
-        }
-
         var span = closing.Utc - opening.Utc;
         var totalMinutes = span.TotalMinutes;
         if (totalMinutes <= 0)
@@ -34,17 +27,17 @@ public static class SlotGrid
             return Array.Empty<Instant>();
         }
 
-        var fits = (int)(totalMinutes / stepMinutes);
+        var fits = (int)(totalMinutes / step.Minutes);
         if (fits <= 0)
         {
             return Array.Empty<Instant>();
         }
 
         var result = new Instant[fits];
+        var stride = step.AsTimeSpan();
         for (var k = 0; k < fits; k++)
         {
-            var delta = TimeSpan.FromMinutes((double)k * stepMinutes);
-            result[k] = new Instant(opening.Utc.Add(delta));
+            result[k] = new Instant(opening.Utc.Add(stride * k));
         }
 
         return result;

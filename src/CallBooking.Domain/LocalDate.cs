@@ -3,7 +3,8 @@ namespace CallBooking.Domain;
 /// <summary>
 /// A date in a calendar's local timezone. Carries year, month and day
 /// without a timezone offset; this is a domain concept used as input
-/// to <see cref="CalendarLocalTimeResolver"/>.
+/// to <see cref="CalendarLocalTimeResolver"/>. The constructor
+/// rejects structural impossibilities (e.g. February 30).
 /// </summary>
 public readonly record struct LocalDate
 {
@@ -23,11 +24,12 @@ public readonly record struct LocalDate
                 "Month must be in [1, 12].");
         }
 
-        if (day is < 1 or > 31)
+        var daysInMonth = DateTime.DaysInMonth(year, month);
+        if (day < 1 || day > daysInMonth)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(day),
-                "Day must be in [1, 31].");
+                $"Day must be in [1, {daysInMonth}] for {year}-{month:D2}.");
         }
 
         Year = year;
