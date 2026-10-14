@@ -13,8 +13,8 @@
   </Folder>
   <Folder Name="/src/CallBooking.Application/">
     <Project Path="src/CallBooking.Application/CallBooking.Application.csproj" />
-    <Project Path="src/CallBooking.Domain/CallBooking.Domain.csproj" />
-    <Project Path="src/CallBooking.Infrastructure/CallBooking.Infrastructure.csproj" />
+    <Project Path="src/CallBooking.Domain\CallBooking.Domain.csproj" />
+    <Project Path="src/CallBooking.Infrastructure\CallBooking.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/src/CallBooking.Web/">
     <Project Path="src/callbooking.web/callbooking.web.esproj">
@@ -25,6 +25,5 @@
   <Folder Name="/tests/">
     <Project Path="tests/CallBooking.Api.Tests/CallBooking.Api.Tests.csproj" Id="be8b5e54-8233-4ca4-80cd-ca83dc8900ac" />
     <Project Path="tests/CallBooking.Architecture.Tests/CallBooking.Architecture.Tests.csproj" />
-    <Project Path="tests/CallBooking.Domain.Tests/CallBooking.Domain.Tests.csproj" />
   </Folder>
 </Solution>
