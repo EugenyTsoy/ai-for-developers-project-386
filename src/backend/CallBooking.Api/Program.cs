@@ -1,6 +1,7 @@
 using CallBooking.Api.Api;
 using CallBooking.Api.Configuration;
 using CallBooking.Api.Generated;
+using CallBooking.Api.Serialization;
 using CallBooking.Application.Calendar;
 using CallBooking.Application.Ports;
 using CallBooking.Domain.Calendar;
@@ -10,13 +11,18 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+    options.JsonSerializerOptions.Converters.Add(new UtcInstantJsonConverter());
+});
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
 builder.Services.AddSingleton(_ => CalendarConfigurationLoader.Load(builder.Configuration));
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<CalendarContext>();
+builder.Services.AddScoped<ListAvailableSlots>();
 
 // Shared in-memory calendar store. A single instance is shared by
 // every repository inside one host so that persisted entities are
@@ -27,7 +33,7 @@ builder.Services.AddScoped<IEventTypeRepository, InMemoryEventTypeRepository>();
 builder.Services.AddScoped<IBookingRepository, InMemoryBookingRepository>();
 
 // Register the handwritten API-boundary adapters behind the generated
-// controller seams. Event types and bookings remain placeholders for later tickets.
+// controller seams. Event type list/create and bookings remain placeholders.
 builder.Services.AddScoped<IEventTypesController, EventTypesControllerImpl>();
 builder.Services.AddScoped<IBookingsController, BookingsControllerImpl>();
 builder.Services.AddScoped<ICalendarController, CalendarControllerImpl>();
