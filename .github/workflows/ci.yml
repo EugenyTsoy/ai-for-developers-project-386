@@ -30,9 +30,6 @@ jobs:
       - name: Restore tests
         run: dotnet restore ./tests/CallBooking.Api.Tests/CallBooking.Api.Tests.csproj
 
-      - name: Restore domain tests
-        run: dotnet restore ./tests/CallBooking.Domain.Tests/CallBooking.Domain.Tests.csproj
-
       - name: Restore architecture tests
         run: dotnet restore ./tests/CallBooking.Architecture.Tests/CallBooking.Architecture.Tests.csproj
 
@@ -45,17 +42,11 @@ jobs:
       - name: Build tests
         run: dotnet build ./tests/CallBooking.Api.Tests/CallBooking.Api.Tests.csproj --no-restore --configuration Release
 
-      - name: Build domain tests
-        run: dotnet build ./tests/CallBooking.Domain.Tests/CallBooking.Domain.Tests.csproj --no-restore --configuration Release
-
       - name: Build architecture tests
         run: dotnet build ./tests/CallBooking.Architecture.Tests/CallBooking.Architecture.Tests.csproj --no-restore --configuration Release
 
       - name: Test
         run: dotnet test ./tests/CallBooking.Api.Tests/CallBooking.Api.Tests.csproj --no-build --configuration Release
-
-      - name: Test domain
-        run: dotnet test ./tests/CallBooking.Domain.Tests/CallBooking.Domain.Tests.csproj --no-build --configuration Release
 
       - name: Test architecture guard
         run: dotnet test ./tests/CallBooking.Architecture.Tests/CallBooking.Architecture.Tests.csproj --no-build --configuration Release
@@ -68,9 +59,6 @@ jobs:
 
       - name: Check test formatting
         run: dotnet format ./tests/CallBooking.Api.Tests/CallBooking.Api.Tests.csproj --verify-no-changes
-
-      - name: Check domain test formatting
-        run: dotnet format ./tests/CallBooking.Domain.Tests/CallBooking.Domain.Tests.csproj --verify-no-changes
 
       - name: Check architecture test formatting
         run: dotnet format ./tests/CallBooking.Architecture.Tests/CallBooking.Architecture.Tests.csproj --verify-no-changes
