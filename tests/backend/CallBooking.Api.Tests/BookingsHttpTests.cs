@@ -42,6 +42,16 @@ public class BookingsHttpTests
         using var slots = JsonDocument.Parse(await subsequentRead.Content.ReadAsStringAsync());
         Assert.DoesNotContain(slots.RootElement.EnumerateArray(), slot =>
             slot.GetProperty("start").GetDateTimeOffset() == saved.Start);
+        using var upcomingResponse = await host.Client.GetAsync("/api/bookings/upcoming");
+        Assert.Equal(HttpStatusCode.OK, upcomingResponse.StatusCode);
+        Assert.Equal("application/json", upcomingResponse.Content.Headers.ContentType?.MediaType);
+        using var upcoming = JsonDocument.Parse(await upcomingResponse.Content.ReadAsStringAsync());
+        var entry = Assert.Single(upcoming.RootElement.EnumerateArray());
+        Assert.Equal("Call", entry.GetProperty("eventTypeName").GetString());
+        Assert.Equal("Alice", entry.GetProperty("guestName").GetString());
+        Assert.Equal("alice@example.com", entry.GetProperty("guestEmail").GetString());
+        Assert.Equal(body.RootElement.GetProperty("start").GetString(), entry.GetProperty("start").GetString());
+        Assert.Equal(body.RootElement.GetProperty("end").GetString(), entry.GetProperty("end").GetString());
     }
 
     [Theory]
