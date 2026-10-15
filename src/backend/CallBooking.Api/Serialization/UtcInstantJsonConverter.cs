@@ -16,6 +16,18 @@ internal sealed class UtcInstantJsonConverter : JsonConverter<DateTimeOffset>
             throw new JsonException("A UTC timestamp with a Z suffix is required.");
         }
 
+        // System.Text.Json truncates fractional digits beyond the seven tick digits.
+        // Extra zeroes are exact; any nonzero remainder would change the requested instant.
+        var decimalPoint = value.IndexOf('.');
+        if (decimalPoint >= 0)
+        {
+            var fraction = value.AsSpan(decimalPoint + 1, value.Length - decimalPoint - 2);
+            if (fraction.Length > 7 && fraction[7..].IndexOfAnyExcept('0') >= 0)
+            {
+                throw new JsonException("The UTC timestamp must be representable without loss of precision.");
+            }
+        }
+
         return instant;
     }
 

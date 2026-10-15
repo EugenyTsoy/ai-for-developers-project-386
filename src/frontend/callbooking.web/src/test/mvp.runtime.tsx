@@ -53,7 +53,8 @@ test('owner creates an EventType, guest books a Slot, and both views read shared
   const interval = `${format(slot.start)} — ${format(slot.end)}`
   await user.click(await screen.findByRole('button', { name: interval }))
   await user.type(screen.getByLabelText('Имя'), 'Runtime Guest')
-  await user.type(screen.getByLabelText('Email'), 'runtime@example.com')
+  await user.click(screen.getByLabelText('Email'))
+  await user.paste('\u00a0runtime@example.com\u00a0')
   await user.click(screen.getByRole('button', { name: 'Записаться' }))
 
   expect(await screen.findByRole('heading', { name: 'Запись подтверждена' })).toBeInTheDocument()

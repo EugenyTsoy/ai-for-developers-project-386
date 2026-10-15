@@ -279,6 +279,30 @@ test('validates required Guest fields before submitting through the typed client
   expect(requests.filter((request) => request.method === 'POST')).toHaveLength(0)
 })
 
+test.each([
+  ['\u00a0guest@example.test\u00a0', true],
+  ['\u00a0not-an-email\u00a0', false],
+  ['\u00a0\u00a0', false],
+])('validates trimmed pasted email %j before POST', async (email, valid) => {
+  const requests: Request[] = []
+  const user = await selectSlotAndFillGuest(clientWith({ requests }))
+  const input = screen.getByRole('textbox', { name: 'Email' })
+  await user.clear(input)
+  await user.paste(email)
+  await user.click(screen.getByRole('button', { name: 'Записаться' }))
+
+  const posts = requests.filter((request) => request.method === 'POST')
+  expect(posts).toHaveLength(valid ? 1 : 0)
+  if (valid) {
+    expect(await posts[0].json()).toEqual({
+      eventTypeId: 'intro', start: slots[0].start, name: 'Guest Person', email: email.trim(),
+    })
+    expect(await screen.findByText('Запись подтверждена')).toBeInTheDocument()
+  } else {
+    expect(screen.getByRole('alert')).toHaveTextContent(email.trim() ? 'Введите корректный email.' : 'Введите email.')
+  }
+})
+
 test('renders all EventTypes with optional descriptions and duration', async () => {
   render(<BookingPage client={clientWith()} />)
 

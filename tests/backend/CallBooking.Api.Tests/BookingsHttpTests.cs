@@ -135,6 +135,7 @@ public class BookingsHttpTests
     [Theory]
     [InlineData("2026-10-14T09:15:00Z")]
     [InlineData("2026-10-14T09:00:00.0000001Z")]
+    [InlineData("2026-10-14T09:00:00.0000001000000000Z")]
     [InlineData("2026-10-14T08:30:00Z")]
     [InlineData("2026-10-14T12:00:00Z")]
     [InlineData("2026-10-15T09:00:00Z")]
@@ -146,6 +147,37 @@ public class BookingsHttpTests
 
         await AssertProblem(response, HttpStatusCode.BadRequest);
         Assert.Empty(host.Bookings.List());
+    }
+
+    [Theory]
+    [InlineData("00000001")]
+    [InlineData("000000001")]
+    [InlineData("0000000000000001")]
+    public async Task Sub_tick_start_returns_400_problem_without_saving_or_consuming_slot(string fraction)
+    {
+        using var host = new BookingsHost();
+        var start = (await ReadSlotStarts(host))[0];
+        var timestamp = start.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
+
+        using var response = await host.Post("known", $"{timestamp}.{fraction}Z");
+
+        await AssertProblem(response, HttpStatusCode.BadRequest);
+        Assert.Empty(host.Bookings.List());
+        Assert.Contains(start, await ReadSlotStarts(host));
+    }
+
+    [Theory]
+    [InlineData("00000000")]
+    [InlineData("000000000")]
+    [InlineData("0000000000000000")]
+    public async Task Exactly_representable_start_with_extra_zero_digits_is_accepted(string fraction)
+    {
+        using var host = new BookingsHost();
+
+        using var response = await host.Post("known", $"2026-10-14T09:00:00.{fraction}Z");
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal(Instant("2026-10-14T09:00:00Z"), Assert.Single(host.Bookings.List()).Start);
     }
 
     [Fact]
