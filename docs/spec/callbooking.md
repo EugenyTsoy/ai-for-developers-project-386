@@ -205,9 +205,9 @@ Fail-fast на любом сбое; удаление устаревших genera
 |---|---|
 | Authored TypeSpec/config | `contract/main.tsp`, `contract/tspconfig.yaml` |
 | Generated OpenAPI | `contract/openapi/callbooking.openapi.yaml` |
-| Generated frontend types | `src/callbooking.web/src/api/generated/schema.d.ts` |
-| Handwritten frontend adapter | `src/callbooking.web/src/api/client.ts` |
-| Generated backend | `src/CallBooking.Api/Generated/Contract.g.cs` |
+| Generated frontend types | `src/frontend/callbooking.web/src/api/generated/schema.d.ts` |
+| Handwritten frontend adapter | `src/frontend/callbooking.web/src/api/client.ts` |
+| Generated backend | `src/backend/CallBooking.Api/Generated/Contract.g.cs` |
 | Generation entrypoint | `scripts/generate-contract.mjs` |
 | Root npm pins | `package.json`, `package-lock.json` |
 | .NET tool pin | `.config/dotnet-tools.json` |
