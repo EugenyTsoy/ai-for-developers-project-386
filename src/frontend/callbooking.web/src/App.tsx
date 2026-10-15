@@ -1,6 +1,7 @@
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom'
 import type { ApiClient } from './api/client'
 import BookingPage from './BookingPage'
+import UpcomingBookingsPage from './UpcomingBookingsPage'
 import './App.css'
 
 function HomePage() {
@@ -29,15 +30,6 @@ function HomePage() {
   )
 }
 
-function PlaceholderPage({ title }: { title: string }) {
-  return (
-    <div className="placeholder-page">
-      <h1>{title}</h1>
-      <p>Раздел пока не реализован</p>
-    </div>
-  )
-}
-
 function App({ client }: { client?: ApiClient }) {
   return (
     <BrowserRouter>
@@ -60,7 +52,7 @@ function App({ client }: { client?: ApiClient }) {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/booking" element={<BookingPage client={client} />} />
-          <Route path="/events" element={<PlaceholderPage title="Предстоящие события" />} />
+          <Route path="/events" element={<UpcomingBookingsPage client={client} />} />
         </Routes>
       </main>
     </BrowserRouter>

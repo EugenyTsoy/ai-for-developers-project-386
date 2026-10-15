@@ -61,13 +61,14 @@ test.each(['шапка', 'основное действие'])('переход �
 
 test('переход к предстоящим событиям и возврат через общую шапку', async () => {
   const user = userEvent.setup()
-  render(<App />)
+  render(<App client={client} />)
 
   await user.click(screen.getByRole('link', { name: 'Предстоящие события' }))
 
   expect(window.location.pathname).toBe('/events')
   expect(screen.getByRole('heading', { name: 'Предстоящие события', level: 1 })).toBeInTheDocument()
-  expect(screen.getByText('Раздел пока не реализован')).toBeInTheDocument()
+  expect(await screen.findByText('Нет предстоящих записей.')).toBeInTheDocument()
+  expect(screen.queryByText('Раздел пока не реализован')).not.toBeInTheDocument()
   expect(screen.queryByRole('heading', { name: 'Calendar' })).not.toBeInTheDocument()
   expect(within(screen.getByRole('navigation')).getByRole('link', { name: 'Записаться' })).toBeInTheDocument()
 

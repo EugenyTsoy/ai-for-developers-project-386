@@ -1,22 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { apiClient, toApiResult } from './api/client'
-import type { ApiClient, ApiHttpFailure, ApiResult, ApiTransportFailure } from './api/client'
+import type { ApiClient, ApiResult } from './api/client'
 import type { components } from './api/generated/schema'
+import { calendarTimeFormatter } from './calendarTimeFormatter'
+import RequestFailure from './RequestFailure'
 
 type CalendarInfo = components['schemas']['CalendarInfo']
 type EventType = components['schemas']['EventType']
 type Slot = components['schemas']['Slot']
 type BookingConfirmation = components['schemas']['BookingConfirmation']
-
-function calendarTimeFormatter(timezone: string) {
-  const formatter = new Intl.DateTimeFormat('ru-RU', {
-    timeZone: timezone,
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
-    timeZoneName: 'longOffset',
-  })
-  return (instant: string) => formatter.format(new Date(instant)).replace('GMT', 'UTC')
-}
 
 function GuestForm({ client, eventTypeId, slot, pending, onPending, onResult }: {
   client: ApiClient
@@ -73,19 +65,6 @@ function GuestForm({ client, eventTypeId, slot, pending, onPending, onResult }: 
       <button type="submit" disabled={pending}>{pending ? 'Запись…' : 'Записаться'}</button>
       {pending && <p role="status">Отправка записи… Подтверждение ещё не получено.</p>}
     </form>
-  )
-}
-
-function RequestFailure({ result, subject }: {
-  result: ApiHttpFailure | ApiTransportFailure
-  subject: string
-}) {
-  return (
-    <p role="alert">
-      {result.kind === 'http'
-        ? `Не удалось загрузить ${subject} (HTTP ${result.status}).`
-        : `Нет соединения: не удалось загрузить ${subject}.`}
-    </p>
   )
 }
 
