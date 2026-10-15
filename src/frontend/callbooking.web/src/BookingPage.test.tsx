@@ -24,12 +24,23 @@ function json(body: unknown, status = 200) {
   })
 }
 
-function clientWith(eventTypesResponse: () => Promise<Response>) {
+function clientWith({
+  calendarResponse = async () => json({ timezone: 'Europe/Berlin' }),
+  eventTypesResponse = async () => json(eventTypes),
+  slotsResponse = async () => json(slots),
+  requests = [],
+}: {
+  calendarResponse?: () => Promise<Response>
+  eventTypesResponse?: () => Promise<Response>
+  slotsResponse?: (path: string) => Promise<Response>
+  requests?: Request[]
+} = {}) {
   return createApiClient('http://api.example.test', (request) => {
+    requests.push(request as Request)
     const path = new URL((request as Request).url).pathname
-    return path === '/api/calendar'
-      ? Promise.resolve(json({ timezone: 'Europe/Berlin' }))
-      : eventTypesResponse()
+    if (path === '/api/calendar') return calendarResponse()
+    if (path === '/api/event-types') return eventTypesResponse()
+    return slotsResponse(path)
   })
 }
 
@@ -49,7 +60,7 @@ test('shows separate CalendarInfo and EventTypes loading states', () => {
 })
 
 test('renders all EventTypes with optional descriptions and duration', async () => {
-  render(<BookingPage client={clientWith(async () => json(eventTypes))} />)
+  render(<BookingPage client={clientWith()} />)
 
   expect(await screen.findByText('Часовой пояс календаря: Europe/Berlin')).toBeInTheDocument()
   expect(await screen.findByText('Знакомство')).toBeInTheDocument()
@@ -65,7 +76,7 @@ test.each([
   ['HTTP', async () => json({ status: 503, title: 'Unavailable', detail: 'Do not display me' }, 503), 'Не удалось загрузить типы событий (HTTP 503).'],
   ['transport', async () => { throw new TypeError('offline') }, 'Нет соединения: не удалось загрузить типы событий.'],
 ])('distinguishes EventTypes %s from loading and data', async (outcome, response, message) => {
-  render(<BookingPage client={clientWith(response)} />)
+  render(<BookingPage client={clientWith({ eventTypesResponse: response })} />)
 
   expect(await screen.findByText(message)).toBeInTheDocument()
   expect(screen.queryByText('Загрузка типов событий…')).not.toBeInTheDocument()
@@ -78,24 +89,18 @@ test.each([
 test('selecting an EventType requests its Slots and shows loading without hiding types', async () => {
   const user = userEvent.setup()
   const pending = deferredResponse()
-  const requests: string[] = []
-  const client = createApiClient('http://api.example.test', async (request) => {
-    const path = new URL((request as Request).url).pathname
-    requests.push(path)
-    if (path === '/api/calendar') return json({ timezone: 'Europe/Berlin' })
-    if (path === '/api/event-types') return json(eventTypes)
-    return pending.promise
-  })
+  const requests: Request[] = []
+  const client = clientWith({ slotsResponse: () => pending.promise, requests })
   render(<BookingPage client={client} />)
   const intro = await screen.findByRole('button', { name: /Знакомство/ })
-  expect(requests).not.toContain('/api/event-types/intro/slots')
+  expect(requests.map((request) => new URL(request.url).pathname)).not.toContain('/api/event-types/intro/slots')
 
   await user.click(intro)
 
   expect(intro).toHaveAttribute('aria-pressed', 'true')
   expect(screen.getByRole('button', { name: /Консультация/ })).toHaveAttribute('aria-pressed', 'false')
   expect(screen.getByText('Загрузка доступного времени…')).toBeInTheDocument()
-  await waitFor(() => expect(requests).toContain('/api/event-types/intro/slots'))
+  await waitFor(() => expect(requests.map((request) => new URL(request.url).pathname)).toContain('/api/event-types/intro/slots'))
   pending.resolve(json([]))
   expect(await screen.findByText('Нет доступного времени для выбранного типа события.')).toBeInTheDocument()
   expect(intro).toBeInTheDocument()
@@ -108,12 +113,7 @@ test.each([
   ['transport', async () => { throw new TypeError('offline') }, 'Нет соединения: не удалось загрузить доступное время.'],
 ])('distinguishes Slots %s failure from empty availability', async (_, response, message) => {
   const user = userEvent.setup()
-  const client = createApiClient('http://api.example.test', (request) => {
-    const path = new URL((request as Request).url).pathname
-    if (path === '/api/calendar') return Promise.resolve(json({ timezone: 'Europe/Berlin' }))
-    if (path === '/api/event-types') return Promise.resolve(json(eventTypes))
-    return response()
-  })
+  const client = clientWith({ slotsResponse: response })
   render(<BookingPage client={client} />)
   await user.click(await screen.findByRole('button', { name: /Знакомство/ }))
 
@@ -130,13 +130,7 @@ test('renders calendar-local Slots, distinguishes repeated labels by UTC offset 
     .format(new Date(slots[0].start))).toBe('17:00')
   const user = userEvent.setup()
   const requests: Request[] = []
-  const client = createApiClient('http://api.example.test', async (request) => {
-    requests.push(request as Request)
-    const path = new URL((request as Request).url).pathname
-    if (path === '/api/calendar') return json({ timezone: 'Europe/Berlin' })
-    if (path === '/api/event-types') return json(eventTypes)
-    return json(slots)
-  })
+  const client = clientWith({ requests })
   render(<BookingPage client={client} />)
   await user.click(await screen.findByRole('button', { name: /Знакомство/ }))
 
@@ -159,11 +153,7 @@ test.each([
   ['transport', async () => { throw new TypeError('offline') }, 'Нет соединения: не удалось загрузить календарь.'],
 ])('CalendarInfo %s failure never falls back to browser-local Slot labels', async (_, response, message) => {
   const user = userEvent.setup()
-  const client = createApiClient('http://api.example.test', (request) => {
-    const path = new URL((request as Request).url).pathname
-    if (path === '/api/calendar') return response()
-    return Promise.resolve(json(path === '/api/event-types' ? eventTypes : slots))
-  })
+  const client = clientWith({ calendarResponse: response })
   render(<BookingPage client={client} />)
   expect(await screen.findByRole('alert')).toHaveTextContent(message)
   await user.click(await screen.findByRole('button', { name: /Знакомство/ }))
@@ -174,11 +164,7 @@ test.each([
 test('waits for calendar metadata before displaying loaded Slot dates', async () => {
   const pending = deferredResponse()
   const user = userEvent.setup()
-  const client = createApiClient('http://api.example.test', async (request) => {
-    const path = new URL((request as Request).url).pathname
-    if (path === '/api/calendar') return pending.promise
-    return json(path === '/api/event-types' ? eventTypes : slots)
-  })
+  const client = clientWith({ calendarResponse: () => pending.promise })
   render(<BookingPage client={client} />)
   await user.click(await screen.findByRole('button', { name: /Знакомство/ }))
   await waitFor(() => expect(screen.queryByText('Загрузка доступного времени…')).not.toBeInTheDocument())
@@ -191,12 +177,8 @@ test('waits for calendar metadata before displaying loaded Slot dates', async ()
 test('switching EventTypes clears Slot selection and ignores late availability responses', async () => {
   const user = userEvent.setup()
   const pending = deferredResponse()
-  const client = createApiClient('http://api.example.test', async (request) => {
-    const path = new URL((request as Request).url).pathname
-    if (path === '/api/calendar') return json({ timezone: 'Europe/Berlin' })
-    if (path === '/api/event-types') return json(eventTypes)
-    if (path === '/api/event-types/consultation/slots') return pending.promise
-    return json(slots)
+  const client = clientWith({
+    slotsResponse: async (path) => path === '/api/event-types/consultation/slots' ? pending.promise : json(slots),
   })
   render(<BookingPage client={client} />)
   await user.click(await screen.findByRole('button', { name: /Знакомство/ }))
@@ -221,10 +203,9 @@ test.each([
 ])('CalendarInfo %s determines the date, time and offset of both Slot endpoints', async (timezone, label) => {
   vi.stubEnv('TZ', 'UTC')
   const user = userEvent.setup()
-  const client = createApiClient('http://api.example.test', async (request) => {
-    const path = new URL((request as Request).url).pathname
-    if (path === '/api/calendar') return json({ timezone })
-    return json(path === '/api/event-types' ? eventTypes : [slots[0]])
+  const client = clientWith({
+    calendarResponse: async () => json({ timezone }),
+    slotsResponse: async () => json([slots[0]]),
   })
   render(<BookingPage client={client} />)
   await user.click(await screen.findByRole('button', { name: /Знакомство/ }))
