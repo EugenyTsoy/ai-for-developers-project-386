@@ -149,6 +149,20 @@ public class BookingsHttpTests
         Assert.Empty(host.Bookings.List());
     }
 
+    [Fact]
+    public async Task Empty_timestamp_fraction_returns_400_problem_without_saving_or_consuming_slot()
+    {
+        using var host = new BookingsHost();
+        var start = (await ReadSlotStarts(host))[0];
+        var timestamp = start.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
+
+        using var response = await host.Post("known", $"{timestamp}.Z");
+
+        await AssertProblem(response, HttpStatusCode.BadRequest);
+        Assert.Empty(host.Bookings.List());
+        Assert.Contains(start, await ReadSlotStarts(host));
+    }
+
     [Theory]
     [InlineData("00000001")]
     [InlineData("000000001")]
