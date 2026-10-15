@@ -35,14 +35,9 @@ public class UpcomingBookingsHttpTests
         using var body = await ReadUpcoming(host);
 
         var booking = Assert.Single(body.RootElement.EnumerateArray());
-        Assert.Equal(new[] { "end", "eventTypeName", "guestEmail", "guestName", "start" },
-            booking.EnumerateObject().Select(property => property.Name).Order());
-        Assert.All(booking.EnumerateObject(), property => Assert.Equal(JsonValueKind.String, property.Value.ValueKind));
         Assert.Equal("Saved consultation", booking.GetProperty("eventTypeName").GetString());
         Assert.Equal("Alice", booking.GetProperty("guestName").GetString());
         Assert.Equal("alice@example.com", booking.GetProperty("guestEmail").GetString());
-        Assert.EndsWith("Z", booking.GetProperty("start").GetString());
-        Assert.EndsWith("Z", booking.GetProperty("end").GetString());
         Assert.Equal(Instant("2026-10-14T10:00:00Z"), booking.GetProperty("start").GetDateTimeOffset());
         Assert.Equal(Instant("2026-10-14T10:30:00Z"), booking.GetProperty("end").GetDateTimeOffset());
     }
@@ -128,7 +123,21 @@ public class UpcomingBookingsHttpTests
         using var response = await host.Client.GetAsync("/api/bookings/upcoming");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
-        return JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(JsonValueKind.Array, body.RootElement.ValueKind);
+        foreach (var booking in body.RootElement.EnumerateArray())
+        {
+            Assert.Equal(new[] { "end", "eventTypeName", "guestEmail", "guestName", "start" },
+                booking.EnumerateObject().Select(property => property.Name).Order());
+            Assert.All(booking.EnumerateObject(), property => Assert.Equal(JsonValueKind.String, property.Value.ValueKind));
+            foreach (var field in new[] { "start", "end" })
+            {
+                var instant = booking.GetProperty(field);
+                Assert.EndsWith("Z", instant.GetString());
+                Assert.Equal(TimeSpan.Zero, instant.GetDateTimeOffset().Offset);
+            }
+        }
+        return body;
     }
 
     private static DateTimeOffset Instant(string value) => DateTimeOffset.Parse(value);

@@ -90,6 +90,7 @@ public class EventTypesHttpTests
         });
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
         using var created = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var item = created.RootElement;
         Assert.False(string.IsNullOrWhiteSpace(item.GetProperty("id").GetString()));
@@ -106,6 +107,7 @@ public class EventTypesHttpTests
         Assert.Equal(30, persisted.DurationMinutes);
         using var list = await client.GetAsync("/api/event-types");
         Assert.Equal(HttpStatusCode.OK, list.StatusCode);
+        Assert.Equal("application/json", list.Content.Headers.ContentType?.MediaType);
         using var saved = JsonDocument.Parse(await list.Content.ReadAsStringAsync());
         Assert.Equal(item.GetRawText(), Assert.Single(saved.RootElement.EnumerateArray()).GetRawText());
     }
@@ -140,6 +142,7 @@ public class EventTypesHttpTests
                 durationMinutes = duration
             });
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
             using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
             Assert.False(body.RootElement.TryGetProperty("description", out _));
             Assert.Equal(new[] { "durationMinutes", "id", "name" },
@@ -161,6 +164,7 @@ public class EventTypesHttpTests
         {
             using var response = await client.GetAsync("/api/event-types");
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
             using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
             var items = body.RootElement.EnumerateArray().ToArray();
             Assert.Equal(ids.Order(), items.Select(item => item.GetProperty("id").GetString()).Order());
