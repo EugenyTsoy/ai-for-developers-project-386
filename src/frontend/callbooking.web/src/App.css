@@ -186,21 +186,26 @@
   color: #b91c1c;
 }
 
-.guest-form {
+.guest-form,
+.event-type-form {
   display: grid;
   gap: 12px;
   max-width: 480px;
 }
 
 .guest-form input,
-.guest-form button {
+.guest-form button,
+.event-type-form input,
+.event-type-form textarea,
+.event-type-form button {
   padding: 12px;
   border: 1px solid #cbd5e1;
   border-radius: 10px;
   font: inherit;
 }
 
-.guest-form button {
+.guest-form button,
+.event-type-form button {
   background: #f97316;
   color: #172033;
   cursor: pointer;
@@ -212,7 +217,10 @@
 }
 
 .guest-form input:focus-visible,
-.guest-form button:focus-visible {
+.guest-form button:focus-visible,
+.event-type-form input:focus-visible,
+.event-type-form textarea:focus-visible,
+.event-type-form button:focus-visible {
   outline: 3px solid #0f172a;
   outline-offset: 3px;
 }
