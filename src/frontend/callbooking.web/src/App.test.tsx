@@ -67,6 +67,7 @@ test('переход к предстоящим событиям и возвра�
 
   expect(window.location.pathname).toBe('/events')
   expect(screen.getByRole('heading', { name: 'Предстоящие события', level: 1 })).toBeInTheDocument()
+  expect(screen.getByRole('form', { name: 'Создать тип события' })).toBeInTheDocument()
   expect(await screen.findByText('Нет предстоящих записей.')).toBeInTheDocument()
   expect(screen.queryByText('Раздел пока не реализован')).not.toBeInTheDocument()
   expect(screen.queryByRole('heading', { name: 'Calendar' })).not.toBeInTheDocument()

@@ -4,6 +4,7 @@ import type { ApiClient, ApiResult } from './api/client'
 import type { components } from './api/generated/schema'
 import { calendarTimeFormatter } from './calendarTimeFormatter'
 import RequestFailure from './RequestFailure'
+import CreateEventTypeForm from './CreateEventTypeForm'
 
 type UpcomingBooking = components['schemas']['UpcomingBooking']
 type CalendarInfo = components['schemas']['CalendarInfo']
@@ -46,6 +47,7 @@ export default function UpcomingBookingsPage({ client = apiClient }: { client?: 
           ))}
         </ul>
       )}
+      <CreateEventTypeForm client={client} />
     </section>
   )
 }
