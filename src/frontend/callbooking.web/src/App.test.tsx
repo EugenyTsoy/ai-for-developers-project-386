@@ -47,8 +47,8 @@ test.each(['шапка', 'основное действие'])('переход �
 
   expect(window.location.pathname).toBe('/booking')
   expect(screen.getByRole('heading', { name: 'Запись на звонок', level: 1 })).toBeInTheDocument()
-  expect(screen.queryByText('Раздел пока не реализован')).not.toBeInTheDocument()
   expect(screen.getByRole('heading', { name: 'Выберите тип события' })).toBeInTheDocument()
+  expect(await screen.findByText('Нет типов событий для записи.')).toBeInTheDocument()
   expect(screen.queryByRole('heading', { name: 'Calendar' })).not.toBeInTheDocument()
   expect(within(screen.getByRole('navigation')).getByRole('link', { name: 'Предстоящие события' })).toBeInTheDocument()
 
@@ -56,7 +56,6 @@ test.each(['шапка', 'основное действие'])('переход �
 
   expect(window.location.pathname).toBe('/')
   expect(screen.getByRole('heading', { name: 'Calendar', level: 1 })).toBeInTheDocument()
-  expect(screen.queryByText('Раздел пока не реализован')).not.toBeInTheDocument()
 })
 
 test('переход к предстоящим событиям и возврат через общую шапку', async () => {
@@ -69,7 +68,6 @@ test('переход к предстоящим событиям и возвра�
   expect(screen.getByRole('heading', { name: 'Предстоящие события', level: 1 })).toBeInTheDocument()
   expect(screen.getByRole('form', { name: 'Создать тип события' })).toBeInTheDocument()
   expect(await screen.findByText('Нет предстоящих записей.')).toBeInTheDocument()
-  expect(screen.queryByText('Раздел пока не реализован')).not.toBeInTheDocument()
   expect(screen.queryByRole('heading', { name: 'Calendar' })).not.toBeInTheDocument()
   expect(within(screen.getByRole('navigation')).getByRole('link', { name: 'Записаться' })).toBeInTheDocument()
 
@@ -77,5 +75,26 @@ test('переход к предстоящим событиям и возвра�
 
   expect(window.location.pathname).toBe('/')
   expect(screen.getByRole('heading', { name: 'Calendar', level: 1 })).toBeInTheDocument()
-  expect(screen.queryByText('Раздел пока не реализован')).not.toBeInTheDocument()
+})
+
+test.each(['/booking', '/events'])('прямое открытие %s показывает реальную страницу и общую шапку', async (path) => {
+  window.history.replaceState(null, '', path)
+  const user = userEvent.setup()
+  render(<App client={client} />)
+
+  expect(screen.getByRole('link', { name: 'Calendar' })).toHaveAttribute('href', '/')
+  expect(screen.getByRole('navigation', { name: 'Основная навигация' })).toBeInTheDocument()
+  if (path === '/booking') {
+    expect(await screen.findByText('Нет типов событий для записи.')).toBeInTheDocument()
+    await user.click(screen.getByRole('link', { name: 'Предстоящие события' }))
+    expect(await screen.findByText('Нет предстоящих записей.')).toBeInTheDocument()
+    expect(screen.getByRole('form', { name: 'Создать тип события' })).toBeInTheDocument()
+  } else {
+    expect(await screen.findByText('Нет предстоящих записей.')).toBeInTheDocument()
+    await user.click(screen.getByRole('link', { name: 'Записаться' }))
+    expect(await screen.findByText('Нет типов событий для записи.')).toBeInTheDocument()
+  }
+  await user.click(screen.getByRole('link', { name: 'Calendar' }))
+  expect(window.location.pathname).toBe('/')
+  expect(screen.getByRole('heading', { name: 'Calendar', level: 1 })).toBeInTheDocument()
 })
