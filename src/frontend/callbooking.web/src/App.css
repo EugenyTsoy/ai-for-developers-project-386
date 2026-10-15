@@ -186,6 +186,37 @@
   color: #b91c1c;
 }
 
+.guest-form {
+  display: grid;
+  gap: 12px;
+  max-width: 480px;
+}
+
+.guest-form input,
+.guest-form button {
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font: inherit;
+}
+
+.guest-form button {
+  background: #f97316;
+  color: #172033;
+  cursor: pointer;
+}
+
+.booking-page button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.guest-form input:focus-visible,
+.guest-form button:focus-visible {
+  outline: 3px solid #0f172a;
+  outline-offset: 3px;
+}
+
 @media (max-width: 760px) {
   .container {
     width: calc(100% - 32px);

@@ -28,11 +28,13 @@ function clientWith({
   calendarResponse = async () => json({ timezone: 'Europe/Berlin' }),
   eventTypesResponse = async () => json(eventTypes),
   slotsResponse = async () => json(slots),
+  bookingResponse = async () => json(slots[0], 201),
   requests = [],
 }: {
   calendarResponse?: () => Promise<Response>
   eventTypesResponse?: () => Promise<Response>
   slotsResponse?: (path: string) => Promise<Response>
+  bookingResponse?: () => Promise<Response>
   requests?: Request[]
 } = {}) {
   return createApiClient('http://api.example.test', (request) => {
@@ -40,6 +42,7 @@ function clientWith({
     const path = new URL((request as Request).url).pathname
     if (path === '/api/calendar') return calendarResponse()
     if (path === '/api/event-types') return eventTypesResponse()
+    if (path === '/api/bookings') return bookingResponse()
     return slotsResponse(path)
   })
 }
@@ -50,6 +53,204 @@ function deferredResponse() {
   return { promise, resolve }
 }
 
+async function selectSlotAndFillGuest(client = clientWith()) {
+  const user = userEvent.setup()
+  render(<BookingPage client={client} />)
+  await user.click(await screen.findByRole('button', { name: /Знакомство/ }))
+  await user.click(await screen.findByRole('button', { name: /02:00 UTC\+02:00/ }))
+  await user.type(screen.getByRole('textbox', { name: 'Имя' }), 'Guest Person')
+  await user.type(screen.getByRole('textbox', { name: 'Email' }), 'guest@example.test')
+  return user
+}
+
+test('409 invalidates the stale Slot, reloads availability and allows a new choice without automatic POST retry', async () => {
+  const requests: Request[] = []
+  let reads = 0
+  let posts = 0
+  const refresh = deferredResponse()
+  const user = await selectSlotAndFillGuest(clientWith({
+    requests,
+    slotsResponse: async () => ++reads === 1 ? json(slots) : refresh.promise,
+    bookingResponse: async () => ++posts === 1
+      ? json({ status: 409, title: 'Conflict', detail: 'Do not display me' }, 409)
+      : json(slots[1], 201),
+  }))
+  await user.click(screen.getByRole('button', { name: 'Записаться' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Слот больше недоступен, выберите другой.')
+  expect(screen.queryByRole('button', { name: 'Записаться' })).not.toBeInTheDocument()
+  expect(screen.getByText('Загрузка доступного времени…')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /Знакомство/ })).toHaveAttribute('aria-pressed', 'true')
+  refresh.resolve(json([slots[1]]))
+  const other = await screen.findByRole('button', { name: /02:00 UTC\+01:00/ })
+  expect(other).toHaveAttribute('aria-pressed', 'false')
+  expect(screen.queryByRole('button', { name: /02:00 UTC\+02:00/ })).not.toBeInTheDocument()
+  await user.click(other)
+  expect(other).toHaveAttribute('aria-pressed', 'true')
+  expect(screen.getByRole('textbox', { name: 'Имя' })).toBeInTheDocument()
+  expect(requests.filter((request) => request.method === 'POST')).toHaveLength(1)
+  expect(reads).toBe(2)
+  expect(screen.queryByText('Запись подтверждена')).not.toBeInTheDocument()
+  expect(screen.queryByText('Do not display me')).not.toBeInTheDocument()
+  await user.type(screen.getByRole('textbox', { name: 'Имя' }), 'Guest Person')
+  await user.type(screen.getByRole('textbox', { name: 'Email' }), 'guest@example.test')
+  await user.click(screen.getByRole('button', { name: 'Записаться' }))
+  expect(await screen.findByText('Запись подтверждена')).toBeInTheDocument()
+  expect(requests.filter((request) => request.method === 'POST')).toHaveLength(2)
+  expect(await requests.filter((request) => request.method === 'POST')[1].json()).toEqual({
+    eventTypeId: 'intro', start: slots[1].start, name: 'Guest Person', email: 'guest@example.test',
+  })
+})
+
+test('a late 409 availability refresh cannot overwrite a different EventType selection', async () => {
+  const refresh = deferredResponse()
+  let reads = 0
+  const user = await selectSlotAndFillGuest(clientWith({
+    slotsResponse: async (path) => path.includes('intro') && ++reads === 2 ? refresh.promise : json(slots),
+    bookingResponse: async () => json({ status: 409, title: 'Conflict' }, 409),
+  }))
+  await user.click(screen.getByRole('button', { name: 'Записаться' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Слот больше недоступен')
+  await user.click(screen.getByRole('button', { name: /Консультация/ }))
+  const choice = await screen.findByRole('button', { name: /02:00 UTC\+01:00/ })
+  await user.click(choice)
+  await act(async () => { refresh.resolve(json([])) })
+  expect(screen.getByRole('button', { name: /Консультация/ })).toHaveAttribute('aria-pressed', 'true')
+  expect(choice).toHaveAttribute('aria-pressed', 'true')
+  expect(screen.queryByText('Нет доступного времени для выбранного типа события.')).not.toBeInTheDocument()
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+})
+
+test('a late POST response from an unmounted booking flow cannot confirm a fresh flow', async () => {
+  const pending = deferredResponse()
+  const user = userEvent.setup()
+  const first = render(<BookingPage client={clientWith({ bookingResponse: () => pending.promise })} />)
+  await user.click(await screen.findByRole('button', { name: /Знакомство/ }))
+  await user.click(await screen.findByRole('button', { name: /02:00 UTC\+02:00/ }))
+  await user.type(screen.getByRole('textbox', { name: 'Имя' }), 'Guest Person')
+  await user.type(screen.getByRole('textbox', { name: 'Email' }), 'guest@example.test')
+  await user.click(screen.getByRole('button', { name: 'Записаться' }))
+  first.unmount()
+  render(<BookingPage client={clientWith()} />)
+  await user.click(await screen.findByRole('button', { name: /Консультация/ }))
+  const choice = await screen.findByRole('button', { name: /02:00 UTC\+01:00/ })
+  await user.click(choice)
+  await act(async () => { pending.resolve(json(slots[0], 201)) })
+  expect(screen.queryByText('Запись подтверждена')).not.toBeInTheDocument()
+  expect(choice).toHaveAttribute('aria-pressed', 'true')
+  expect(screen.getByRole('button', { name: 'Записаться' })).toBeEnabled()
+})
+
+test.each([
+  [400, 'Не удалось создать запись (HTTP 400).'],
+  [404, 'Не удалось создать запись (HTTP 404).'],
+  [503, 'Не удалось создать запись (HTTP 503).'],
+  [null, 'Нет соединения: подтверждение записи не получено.'],
+])('Booking failure %s never confirms or automatically retries', async (status, message) => {
+  const requests: Request[] = []
+  const user = await selectSlotAndFillGuest(clientWith({
+    requests,
+    bookingResponse: async () => {
+      if (status === null) throw new TypeError('offline')
+      return json({ status, title: 'Failure', detail: 'Do not display me' }, status)
+    },
+  }))
+  await user.click(screen.getByRole('button', { name: 'Записаться' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent(message)
+  expect(screen.queryByText('Запись подтверждена')).not.toBeInTheDocument()
+  expect(screen.queryByText('Do not display me')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Записаться' })).toBeEnabled()
+  expect(requests.filter((request) => request.method === 'POST')).toHaveLength(1)
+})
+
+test('Guest can reload availability after a failed 409 refresh', async () => {
+  let reads = 0
+  const user = await selectSlotAndFillGuest(clientWith({
+    slotsResponse: async () => ++reads === 2 ? json({ status: 503, title: 'Unavailable' }, 503) : json(slots),
+    bookingResponse: async () => json({ status: 409, title: 'Conflict' }, 409),
+  }))
+  await user.click(screen.getByRole('button', { name: 'Записаться' }))
+  expect(await screen.findByText('Не удалось загрузить доступное время (HTTP 503).')).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Обновить доступное время' }))
+  expect(await screen.findByRole('button', { name: /02:00 UTC\+01:00/ })).toHaveAttribute('aria-pressed', 'false')
+  expect(reads).toBe(3)
+})
+
+test('changes before submit send only the final EventType and Slot despite late availability', async () => {
+  const requests: Request[] = []
+  const late = deferredResponse()
+  let consultationReads = 0
+  const user = await selectSlotAndFillGuest(clientWith({
+    requests,
+    slotsResponse: async (path) => path.includes('consultation') && ++consultationReads === 1
+      ? late.promise : json(slots),
+  }))
+  await user.click(screen.getByRole('button', { name: /Консультация/ }))
+  expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: /Знакомство/ }))
+  await user.click(await screen.findByRole('button', { name: /02:00 UTC\+02:00/ }))
+  await user.click(screen.getByRole('button', { name: /02:00 UTC\+01:00/ }))
+  await user.click(screen.getByRole('button', { name: /Консультация/ }))
+  await user.click(await screen.findByRole('button', { name: /02:00 UTC\+01:00/ }))
+  await act(async () => { late.resolve(json([])) })
+  expect(screen.getByRole('button', { name: /02:00 UTC\+01:00/ })).toHaveAttribute('aria-pressed', 'true')
+  await user.type(screen.getByRole('textbox', { name: 'Имя' }), 'Final Guest')
+  await user.type(screen.getByRole('textbox', { name: 'Email' }), 'final@example.test')
+  await user.click(screen.getByRole('button', { name: 'Записаться' }))
+  expect(await screen.findByText('Запись подтверждена')).toBeInTheDocument()
+  const posts = requests.filter((request) => request.method === 'POST')
+  expect(posts).toHaveLength(1)
+  expect(await posts[0].json()).toEqual({
+    eventTypeId: 'consultation', start: slots[1].start, name: 'Final Guest', email: 'final@example.test',
+  })
+})
+
+test.each([
+  ['Europe/Berlin', slots[0], '25.10.2026, 02:00 UTC+02:00 — 25.10.2026, 02:30 UTC+02:00'],
+  ['Asia/Kolkata', slots[0], '25.10.2026, 05:30 UTC+05:30 — 25.10.2026, 06:00 UTC+05:30'],
+  ['America/Los_Angeles', slots[0], '24.10.2026, 17:00 UTC-07:00 — 24.10.2026, 17:30 UTC-07:00'],
+])('confirmation explicitly uses %s rather than ambient UTC', async (timezone, confirmation, label) => {
+  vi.stubEnv('TZ', 'UTC')
+  const user = userEvent.setup()
+  render(<BookingPage client={clientWith({
+    calendarResponse: async () => json({ timezone }),
+    bookingResponse: async () => json(confirmation, 201),
+  })} />)
+  await user.click(await screen.findByRole('button', { name: /Знакомство/ }))
+  await user.click((await screen.findAllByRole('button', { name: /UTC[+-]/ }))[0])
+  await user.type(screen.getByRole('textbox', { name: 'Имя' }), 'Guest Person')
+  await user.type(screen.getByRole('textbox', { name: 'Email' }), 'guest@example.test')
+  await user.click(screen.getByRole('button', { name: 'Записаться' }))
+  expect(await screen.findByText('Запись подтверждена')).toBeInTheDocument()
+  expect(screen.getByText(label)).toBeInTheDocument()
+  expect(screen.getByText(`Часовой пояс календаря: ${timezone}`)).toBeInTheDocument()
+})
+
+test('pending submit protects against duplicates and confirms only the returned Booking in calendar timezone', async () => {
+  vi.stubEnv('TZ', 'America/Los_Angeles')
+  const pending = deferredResponse()
+  const requests: Request[] = []
+  const user = await selectSlotAndFillGuest(clientWith({ bookingResponse: () => pending.promise, requests }))
+  await user.dblClick(screen.getByRole('button', { name: 'Записаться' }))
+  expect(screen.getByRole('button', { name: 'Запись…' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: /Консультация/ })).toBeDisabled()
+  expect(screen.getByRole('button', { name: /02:00 UTC\+01:00/ })).toBeDisabled()
+  expect(screen.queryByText('Запись подтверждена')).not.toBeInTheDocument()
+  const posts = requests.filter((request) => request.method === 'POST')
+  expect(posts).toHaveLength(1)
+  expect(await posts[0].json()).toEqual({
+    eventTypeId: 'intro', start: slots[0].start, name: 'Guest Person', email: 'guest@example.test',
+  })
+  pending.resolve(json(slots[1], 201))
+  expect(await screen.findByText('Запись подтверждена')).toBeInTheDocument()
+  expect(screen.getByText('25.10.2026, 02:00 UTC+01:00 — 25.10.2026, 02:30 UTC+01:00')).toBeInTheDocument()
+  expect(screen.getByText('Часовой пояс календаря: Europe/Berlin')).toBeInTheDocument()
+  expect(document.body).not.toHaveTextContent('Guest Person')
+  expect(document.body).not.toHaveTextContent('guest@example.test')
+  expect(document.body).not.toHaveTextContent('intro')
+  expect(document.body).not.toHaveTextContent('consultation')
+  expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+})
+
 test('shows separate CalendarInfo and EventTypes loading states', () => {
   const client = createApiClient('http://api.example.test', () => new Promise<Response>(() => {}))
   render(<BookingPage client={client} />)
@@ -57,6 +258,25 @@ test('shows separate CalendarInfo and EventTypes loading states', () => {
   expect(screen.getByText('Загрузка календаря…')).toBeInTheDocument()
   expect(screen.getByText('Загрузка типов событий…')).toBeInTheDocument()
   expect(screen.queryByText('Нет типов событий для записи.')).not.toBeInTheDocument()
+})
+
+test('validates required Guest fields before submitting through the typed client', async () => {
+  const user = userEvent.setup()
+  const requests: Request[] = []
+  render(<BookingPage client={clientWith({ requests })} />)
+  await user.click(await screen.findByRole('button', { name: /Знакомство/ }))
+  await user.click(await screen.findByRole('button', { name: /02:00 UTC\+02:00/ }))
+  expect(screen.getByRole('textbox', { name: 'Имя' })).toBeRequired()
+  expect(screen.getByRole('textbox', { name: 'Email' })).toBeRequired()
+  await user.click(screen.getByRole('button', { name: 'Записаться' }))
+  expect(screen.getByText('Введите имя.')).toBeInTheDocument()
+  expect(screen.getByText('Введите email.')).toBeInTheDocument()
+  await user.type(screen.getByRole('textbox', { name: 'Имя' }), '   ')
+  await user.type(screen.getByRole('textbox', { name: 'Email' }), 'not-an-email')
+  await user.click(screen.getByRole('button', { name: 'Записаться' }))
+  expect(screen.getByText('Введите имя.')).toBeInTheDocument()
+  expect(screen.getByText('Введите корректный email.')).toBeInTheDocument()
+  expect(requests.filter((request) => request.method === 'POST')).toHaveLength(0)
 })
 
 test('renders all EventTypes with optional descriptions and duration', async () => {
