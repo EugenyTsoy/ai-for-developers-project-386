@@ -21,7 +21,6 @@ function GuestForm({ client, eventTypeId, slot, pending, onPending, onResult }: 
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [errors, setErrors] = useState({ name: '', email: '' })
-  const emailInput = useRef<HTMLInputElement>(null)
   const active = useRef(false)
   const inFlight = useRef(false)
   useEffect(() => {
@@ -33,10 +32,15 @@ function GuestForm({ client, eventTypeId, slot, pending, onPending, onResult }: 
     <form className="guest-form" noValidate onSubmit={(event) => {
       event.preventDefault()
       if (inFlight.current) return
+      const trimmedName = name.trim()
+      const trimmedEmail = email.trim()
+      const emailValidation = document.createElement('input')
+      emailValidation.type = 'email'
+      emailValidation.value = trimmedEmail
       const validation = {
-        name: name.trim() ? '' : 'Введите имя.',
-        email: !email.trim() ? 'Введите email.'
-          : emailInput.current?.validity.typeMismatch
+        name: trimmedName ? '' : 'Введите имя.',
+        email: !trimmedEmail ? 'Введите email.'
+          : emailValidation.validity.typeMismatch
             ? 'Введите корректный email.' : '',
       }
       setErrors(validation)
@@ -44,7 +48,7 @@ function GuestForm({ client, eventTypeId, slot, pending, onPending, onResult }: 
       inFlight.current = true
       onPending()
       void toApiResult(client.POST('/api/bookings', {
-        body: { eventTypeId, start: slot.start, name, email },
+        body: { eventTypeId, start: slot.start, name: trimmedName, email: trimmedEmail },
       })).then((result) => {
         if (!active.current) return
         inFlight.current = false
@@ -58,7 +62,7 @@ function GuestForm({ client, eventTypeId, slot, pending, onPending, onResult }: 
         onChange={(event) => setName(event.target.value)} />
       {errors.name && <p id="name-error" role="alert">{errors.name}</p>}
       <label htmlFor="guest-email">Email</label>
-      <input ref={emailInput} id="guest-email" type="email" autoComplete="email" required value={email} disabled={pending}
+      <input id="guest-email" type="email" autoComplete="email" required value={email} disabled={pending}
         aria-invalid={!!errors.email} aria-describedby={errors.email ? 'email-error' : undefined}
         onChange={(event) => setEmail(event.target.value)} />
       {errors.email && <p id="email-error" role="alert">{errors.email}</p>}
