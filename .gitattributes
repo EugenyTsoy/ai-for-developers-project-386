@@ -2,5 +2,5 @@
 # NSwag emits OS-native line endings, so without this Windows and Linux
 # would produce different blobs for the same generated content.
 contract/openapi/callbooking.openapi.yaml text eol=lf
-src/callbooking.web/src/api/generated/schema.d.ts text eol=lf
-src/CallBooking.Api/Generated/Contract.g.cs text eol=lf
+src/frontend/callbooking.web/src/api/generated/schema.d.ts text eol=lf
+src/backend/CallBooking.Api/Generated/Contract.g.cs text eol=lf
