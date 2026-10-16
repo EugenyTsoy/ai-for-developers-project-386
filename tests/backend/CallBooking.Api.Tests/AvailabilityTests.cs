@@ -7,10 +7,11 @@ public class AvailabilityTests
 {
     [Theory]
     [InlineData(30, new[] { "09:15", "09:45", "10:15" })]
-    [InlineData(45, new[] { "09:15", "10:00" })]
+    [InlineData(45, new[] { "09:15", "09:45" })]
+    [InlineData(60, new[] { "09:15", "09:45" })]
     [InlineData(100, new string[] { })]
     [InlineData(int.MaxValue, new string[] { })]
-    public void Canonical_grid_uses_authoritative_duration_and_discards_incomplete_trailing_slots(
+    public void Fixed_thirty_minute_start_grid_uses_authoritative_duration_and_discards_incomplete_candidates(
         int duration, string[] expectedStarts)
     {
         var calendar = Calendar("Etc/UTC", DayOfWeek.Wednesday, "09:15", "10:50");
@@ -41,17 +42,17 @@ public class AvailabilityTests
 
         Assert.Equal(new[]
         {
-            "2026-03-28T23:00:00Z", "2026-03-28T23:45:00Z", "2026-03-29T00:30:00Z",
-            "2026-03-29T01:15:00Z", "2026-03-29T02:00:00Z"
+            "2026-03-28T23:00:00Z", "2026-03-28T23:30:00Z", "2026-03-29T00:00:00Z",
+            "2026-03-29T00:30:00Z", "2026-03-29T01:00:00Z", "2026-03-29T01:30:00Z", "2026-03-29T02:00:00Z"
         }.Select(Instant), slots.Select(slot => slot.Start));
-        Assert.Equal(new[] { "00:00", "00:45", "01:30", "03:15", "04:00" },
+        Assert.Equal(new[] { "00:00", "00:30", "01:00", "01:30", "03:00", "03:30", "04:00" },
             slots.Select(slot => TimeZoneInfo.ConvertTime(slot.Start, calendar.TimeZone).ToString("HH:mm")));
-        Assert.Equal(Instant("2026-03-29T01:15:00Z"), slots[2].End);
+        Assert.Equal(Instant("2026-03-29T01:15:00Z"), slots[3].End);
         Assert.All(slots, slot => Assert.Equal(TimeSpan.FromMinutes(45), slot.End - slot.Start));
     }
 
     [Theory]
-    [InlineData("02:00", "03:00", 60, "2026-10-25T00:00:00Z", "2026-10-25T02:00:00Z", 2)]
+    [InlineData("02:00", "03:00", 60, "2026-10-25T00:00:00Z", "2026-10-25T02:00:00Z", 3)]
     [InlineData("01:00", "02:30", 30, "2026-10-24T23:00:00Z", "2026-10-25T01:30:00Z", 5)]
     [InlineData("02:00", "02:30", 30, "2026-10-25T00:00:00Z", "2026-10-25T01:30:00Z", 3)]
     public void Ambiguous_open_is_earliest_and_ambiguous_close_is_latest(
@@ -75,16 +76,14 @@ public class AvailabilityTests
         var hourly = Availability.GetSlotGrid(calendar, date, Type(60));
         var repeated = hourly.Select(slot => TimeZoneInfo.ConvertTime(slot.Start, calendar.TimeZone))
             .Where(start => start.Hour == 2).ToArray();
-        Assert.Equal(new[] { TimeSpan.FromHours(2), TimeSpan.FromHours(1) }, repeated.Select(start => start.Offset));
-        Assert.Equal(hourly[2].End, hourly[3].Start);
+        Assert.Equal(new[] { TimeSpan.FromHours(2), TimeSpan.FromHours(2), TimeSpan.FromHours(1), TimeSpan.FromHours(1) },
+            repeated.Select(start => start.Offset));
+        Assert.Equal(hourly[4].End, hourly[6].Start);
 
         var fortyFive = Availability.GetSlotGrid(calendar, date, Type(45));
-        Assert.Equal(new[]
-        {
-            "2026-10-24T22:00:00Z", "2026-10-24T22:45:00Z", "2026-10-24T23:30:00Z",
-            "2026-10-25T00:15:00Z", "2026-10-25T01:00:00Z", "2026-10-25T01:45:00Z",
-            "2026-10-25T02:30:00Z", "2026-10-25T03:15:00Z"
-        }.Select(Instant), fortyFive.Select(slot => slot.Start));
+        Assert.Equal(hourly.Select(slot => slot.Start), fortyFive.Select(slot => slot.Start));
+        Assert.Equal(11, fortyFive.Count);
+        Assert.All(fortyFive, slot => Assert.Equal(TimeSpan.FromMinutes(45), slot.End - slot.Start));
         Assert.DoesNotContain(fortyFive, slot => slot.Start == Instant("2026-10-25T01:15:00Z"));
     }
 
