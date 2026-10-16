@@ -5,6 +5,8 @@ namespace CallBooking.Domain.Calendar;
 /// <summary>Calendar rules on the elapsed-time timeline, independent of persistence.</summary>
 public static class Availability
 {
+    private static readonly TimeSpan StartInterval = TimeSpan.FromMinutes(30);
+
     public static IReadOnlyList<TimeInterval> List(
         CalendarConfiguration calendar, EventType eventType, DateTimeOffset now, IReadOnlyList<Booking> bookings)
     {
@@ -57,7 +59,7 @@ public static class Availability
         var close = ResolveBoundary(localClose, calendar.TimeZone, earlier: false);
         var duration = TimeSpan.FromMinutes(eventType.DurationMinutes);
         List<TimeInterval> slots = [];
-        for (var start = open; close - start >= duration; start += duration)
+        for (var start = open; close - start >= duration; start += StartInterval)
         {
             slots.Add(new TimeInterval(start, start + duration));
         }

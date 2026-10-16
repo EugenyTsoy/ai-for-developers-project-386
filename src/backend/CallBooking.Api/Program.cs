@@ -12,6 +12,17 @@ using CallBooking.Infrastructure.InMemory;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// PaaS hosts provide PORT; bind all interfaces rather than localhost.
+if (builder.Configuration["PORT"] is { } portValue)
+{
+    if (!int.TryParse(portValue, out var port) || port is < 1 or > 65535)
+    {
+        throw new InvalidOperationException("PORT must be an integer between 1 and 65535.");
+    }
+
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+}
+
 // Add services to the container.
 
 builder.Services.AddControllers(options =>
@@ -61,12 +72,19 @@ _ = app.Services.GetRequiredService<CalendarConfiguration>();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.UseHttpsRedirection();
 }
 
-app.UseHttpsRedirection();
+// Production TLS terminates at the hosting platform, not in the container.
+app.UseDefaultFiles();
+app.UseStaticFiles();
 
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Only known client routes fall back to the SPA. Unknown API/asset paths stay 404.
+app.MapFallbackToFile("/booking", "index.html");
+app.MapFallbackToFile("/events", "index.html");
 
 app.Run();
