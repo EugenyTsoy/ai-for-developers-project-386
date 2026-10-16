@@ -14,6 +14,43 @@ namespace CallBooking.Api.Tests;
 
 public class BookingsHttpTests
 {
+    [Theory]
+    [InlineData(30, "11:15")]
+    [InlineData(45, "10:45")]
+    [InlineData(60, "10:45")]
+    public async Task Thirty_minute_start_interval_is_anchored_at_open_not_duration_or_clock_hour(int duration, string incompleteStart)
+    {
+        using var host = new BookingsHost(open: "09:15", close: "11:15", duration: duration);
+        Assert.Contains(Instant("2026-10-14T09:45:00Z"), await ReadSlotStarts(host));
+        using var offGrid = await host.Post("known", "2026-10-14T10:00:00Z");
+        await AssertProblem(offGrid, HttpStatusCode.BadRequest);
+        using var incomplete = await host.Post("known", $"2026-10-14T{incompleteStart}:00Z");
+        await AssertProblem(incomplete, HttpStatusCode.BadRequest);
+        Assert.Empty(host.Bookings.List());
+
+        using var accepted = await host.Post("known", "2026-10-14T09:45:00Z");
+        Assert.Equal(HttpStatusCode.Created, accepted.StatusCode);
+        Assert.Equal(Instant("2026-10-14T09:45:00Z").AddMinutes(duration), Assert.Single(host.Bookings.List()).End);
+        using var occupied = await host.Post("known", "2026-10-14T09:45:00Z");
+        await AssertProblem(occupied, HttpStatusCode.Conflict);
+        Assert.Single(host.Bookings.List());
+    }
+
+    [Fact]
+    public async Task Forty_five_minute_booking_blocks_intersecting_grid_starts_without_reanchoring_at_its_end()
+    {
+        using var host = new BookingsHost(duration: 45);
+        using var first = await host.Post("known", "2026-10-14T09:00:00Z");
+        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+        using var overlap = await host.Post("known", "2026-10-14T09:30:00Z");
+        await AssertProblem(overlap, HttpStatusCode.Conflict);
+        using var endOffGrid = await host.Post("known", "2026-10-14T09:45:00Z");
+        await AssertProblem(endOffGrid, HttpStatusCode.BadRequest);
+        using var next = await host.Post("known", "2026-10-14T10:00:00Z");
+        Assert.Equal(HttpStatusCode.Created, next.StatusCode);
+        Assert.Equal(2, host.Bookings.List().Count);
+    }
+
     [Fact]
     public async Task Valid_booking_returns_201_only_start_end_without_location_after_saving_trimmed_guest()
     {
@@ -292,7 +329,9 @@ public class BookingsHttpTests
     }
 
     [Theory]
+    [InlineData("2026-03-28T22:00:00Z", "00:00", "05:00", 45, "2026-03-28T23:30:00Z", "2026-03-29T00:15:00Z")]
     [InlineData("2026-03-28T22:00:00Z", "00:00", "05:00", 45, "2026-03-29T00:30:00Z", "2026-03-29T01:15:00Z")]
+    [InlineData("2026-10-24T21:00:00Z", "02:00", "03:00", 60, "2026-10-25T00:30:00Z", "2026-10-25T01:30:00Z")]
     [InlineData("2026-10-24T21:00:00Z", "02:00", "03:00", 60, "2026-10-25T00:00:00Z", "2026-10-25T01:00:00Z")]
     [InlineData("2026-10-24T21:00:00Z", "02:00", "03:00", 60, "2026-10-25T01:00:00Z", "2026-10-25T02:00:00Z")]
     public async Task Authoritative_duration_derives_end_on_elapsed_timeline_across_DST(

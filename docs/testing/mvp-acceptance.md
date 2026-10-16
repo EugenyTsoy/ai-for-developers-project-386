@@ -16,7 +16,7 @@ Backend-файлы ниже находятся в `tests/backend/CallBooking.Api
 | AC2 — отказ создания типа | TK4/TK14 (#22/#32) | `EventTypeTests`, `EventTypesHttpTests`: malformed/schema-invalid input, 400 ProblemDetails, отсутствие сохранения |
 | AC3 — список типов | TK4/TK5/TK14 (#22/#23/#32) | `EventTypesHttpTests`, `SlotsHttpTests`: пустой/полный массив, тип с чрезмерной для окна длительностью или без свободных слотов остаётся видимым |
 | AC4 — slots/calendar | TK3/TK5 (#21/#23) | `CalendarConfigurationTests`, `SlotsHttpTests`: IANA timezone, сохранённая длительность, UTC-Z, 200/404, пустая доступность |
-| AC5 — рабочее окно/grid | TK5 (#23) | `AvailabilityTests`, `SlotsHttpTests`: сетка от opening, разные duration, отбрасывание остатка, now не сдвигает grid |
+| AC5 — рабочее окно/grid | TK5 (#23), ADR-0002 | `AvailabilityTests`, `SlotsHttpTests`: фиксированный интервал начал 30 минут от opening (в том числе 09:15), duration 30/45/60, отбрасывание неполных кандидатов, now не сдвигает grid |
 | AC6 — Booking Window/now | TK5/TK6 (#23/#24) | `AvailabilityTests`, `SlotsHttpTests`, `BookingsHttpTests`, `TimeIntervalTests`: 14 календарных дат, строгий now, полное вхождение, допустимое равенство end верхней границе |
 | AC7 — overlap | TK5/TK6/TK7 (#23/#24/#25) | `TimeIntervalTests`: half-open, adjacency, midnight; `SlotsHttpTests`: общий busy state; `BookingsHttpTests`: последовательный cross-type overlap/adjacency; `BookingContentionTests`: конкурентные пересечения разных типов и start |
 | AC8 — пример 60/30 минут | TK5 (#23) | `AvailabilityTests.Saved_bookings_of_other_types_remove_overlapping_but_not_adjacent_slots`, `SlotsHttpTests.Reads_do_not_reserve_and_see_new_bookings_of_any_type_in_the_same_saved_storage` |
