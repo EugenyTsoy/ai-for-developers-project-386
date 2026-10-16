@@ -33,10 +33,9 @@ npm run dev
 Это серверная настройка proxy, не второй HTTP-клиент.
 
 Vite обслуживает BrowserRouter routes `/`, `/booking`, `/events`, включая
-прямое открытие и обновление вложенного URL. Отдельный ASP.NET SPA fallback не
-нужен: в выбранной topology API не хостит frontend. `npm run build` проверяет
-production bundle, но не вводит production hosting; `vite preview` не является
-полным runtime с API proxy.
+прямое открытие и обновление вложенного URL. В этой dev-topology API не хостит
+frontend. Production-сборка в одном контейнере и ASP.NET SPA fallback описаны в
+[docker.md](docker.md). `vite preview` не является полным runtime с API proxy.
 
 ## Воспроизводимая автоматическая проверка
 
