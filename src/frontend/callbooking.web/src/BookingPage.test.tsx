@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
 import { createApiClient } from './api/client'
@@ -53,10 +53,15 @@ function deferredResponse() {
   return { promise, resolve }
 }
 
+async function selectDate(date = '2026-10-25') {
+  fireEvent.change(await screen.findByLabelText('Дата в часовом поясе календаря'), { target: { value: date } })
+}
+
 async function selectSlotAndFillGuest(client = clientWith()) {
   const user = userEvent.setup()
   render(<BookingPage client={client} />)
   await user.click(await screen.findByRole('button', { name: /Знакомство/ }))
+  await selectDate()
   await user.click(await screen.findByRole('button', { name: /02:00 UTC\+02:00/ }))
   await user.type(screen.getByRole('textbox', { name: 'Имя' }), 'Guest Person')
   await user.type(screen.getByRole('textbox', { name: 'Email' }), 'guest@example.test')
@@ -82,6 +87,7 @@ test('409 invalidates the stale Slot, reloads availability and allows a new choi
   expect(screen.getByRole('button', { name: /Знакомство/ })).toHaveAttribute('aria-pressed', 'true')
   refresh.resolve(json([slots[1]]))
   const other = await screen.findByRole('button', { name: /02:00 UTC\+01:00/ })
+  expect(screen.getByLabelText('Дата в часовом поясе календаря')).toHaveValue('2026-10-25')
   expect(other).toHaveAttribute('aria-pressed', 'false')
   expect(screen.queryByRole('button', { name: /02:00 UTC\+02:00/ })).not.toBeInTheDocument()
   await user.click(other)
@@ -111,6 +117,7 @@ test('a late 409 availability refresh cannot overwrite a different EventType sel
   await user.click(screen.getByRole('button', { name: 'Записаться' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('Слот больше недоступен')
   await user.click(screen.getByRole('button', { name: /Консультация/ }))
+  await selectDate()
   const choice = await screen.findByRole('button', { name: /02:00 UTC\+01:00/ })
   await user.click(choice)
   await act(async () => { refresh.resolve(json([])) })
@@ -125,6 +132,7 @@ test('a late POST response from an unmounted booking flow cannot confirm a fresh
   const user = userEvent.setup()
   const first = render(<BookingPage client={clientWith({ bookingResponse: () => pending.promise })} />)
   await user.click(await screen.findByRole('button', { name: /Знакомство/ }))
+  await selectDate()
   await user.click(await screen.findByRole('button', { name: /02:00 UTC\+02:00/ }))
   await user.type(screen.getByRole('textbox', { name: 'Имя' }), 'Guest Person')
   await user.type(screen.getByRole('textbox', { name: 'Email' }), 'guest@example.test')
@@ -132,6 +140,7 @@ test('a late POST response from an unmounted booking flow cannot confirm a fresh
   first.unmount()
   render(<BookingPage client={clientWith()} />)
   await user.click(await screen.findByRole('button', { name: /Консультация/ }))
+  await selectDate()
   const choice = await screen.findByRole('button', { name: /02:00 UTC\+01:00/ })
   await user.click(choice)
   await act(async () => { pending.resolve(json(slots[0], 201)) })
@@ -187,9 +196,11 @@ test('changes before submit send only the final EventType and Slot despite late 
   await user.click(screen.getByRole('button', { name: /Консультация/ }))
   expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: /Знакомство/ }))
+  await selectDate()
   await user.click(await screen.findByRole('button', { name: /02:00 UTC\+02:00/ }))
   await user.click(screen.getByRole('button', { name: /02:00 UTC\+01:00/ }))
   await user.click(screen.getByRole('button', { name: /Консультация/ }))
+  await selectDate()
   await user.click(await screen.findByRole('button', { name: /02:00 UTC\+01:00/ }))
   await act(async () => { late.resolve(json([])) })
   expect(screen.getByRole('button', { name: /02:00 UTC\+01:00/ })).toHaveAttribute('aria-pressed', 'true')
@@ -216,6 +227,7 @@ test.each([
     bookingResponse: async () => json(confirmation, 201),
   })} />)
   await user.click(await screen.findByRole('button', { name: /Знакомство/ }))
+  await selectDate(timezone === 'America/Los_Angeles' ? '2026-10-24' : '2026-10-25')
   await user.click((await screen.findAllByRole('button', { name: /UTC[+-]/ }))[0])
   await user.type(screen.getByRole('textbox', { name: 'Имя' }), 'Guest Person')
   await user.type(screen.getByRole('textbox', { name: 'Email' }), 'guest@example.test')
@@ -233,6 +245,7 @@ test('pending submit protects against duplicates and confirms only the returned 
   await user.dblClick(screen.getByRole('button', { name: 'Записаться' }))
   expect(screen.getByRole('button', { name: 'Запись…' })).toBeDisabled()
   expect(screen.getByRole('button', { name: /Консультация/ })).toBeDisabled()
+  expect(screen.getByLabelText('Дата в часовом поясе календаря')).toBeDisabled()
   expect(screen.getByRole('button', { name: /02:00 UTC\+01:00/ })).toBeDisabled()
   expect(screen.queryByText('Запись подтверждена')).not.toBeInTheDocument()
   const posts = requests.filter((request) => request.method === 'POST')
@@ -251,6 +264,43 @@ test('pending submit protects against duplicates and confirms only the returned 
   expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
 })
 
+test('calendar date precedes time, filters by calendar-local date and clears guest state on date changes', async () => {
+  vi.stubEnv('TZ', 'Asia/Tokyo')
+  const user = userEvent.setup()
+  const requests: Request[] = []
+  const next = { start: '2026-10-26T00:30:00Z', end: '2026-10-26T01:15:00Z' }
+  render(<BookingPage client={clientWith({
+    requests,
+    calendarResponse: async () => json({ timezone: 'America/Los_Angeles' }),
+    slotsResponse: async () => json([slots[0], next,
+      { start: '2026-10-28T00:30:00Z', end: '2026-10-28T01:15:00Z' }]),
+  })} />)
+  await user.click(await screen.findByRole('button', { name: /Знакомство/ }))
+  const date = await screen.findByLabelText('Дата в часовом поясе календаря')
+  expect(date).toHaveAttribute('type', 'date')
+  expect(date).toHaveValue('')
+  expect(screen.queryByRole('button', { name: /UTC[+-]/ })).not.toBeInTheDocument()
+  await selectDate('2026-10-24')
+  const early = await screen.findByRole('button', { name: /24.10.2026, 17:00/ })
+  expect(screen.queryByRole('button', { name: /25.10.2026, 17:30/ })).not.toBeInTheDocument()
+  await user.click(early)
+  await user.type(screen.getByLabelText('Имя'), 'Discarded Guest')
+  await selectDate('2026-10-25')
+  expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /24.10.2026, 17:00/ })).not.toBeInTheDocument()
+  const later = screen.getByRole('button', { name: /25.10.2026, 17:30/ })
+  expect(later).toHaveAttribute('aria-pressed', 'false')
+  await user.click(later)
+  expect(screen.getByLabelText('Имя')).toHaveValue('')
+  await selectDate('2026-10-26')
+  expect(screen.getByText('На выбранную дату нет доступного времени.')).toBeInTheDocument()
+  expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+  await selectDate('')
+  expect(screen.queryByRole('button', { name: /UTC[+-]/ })).not.toBeInTheDocument()
+  expect(requests).toHaveLength(3)
+  expect(requests.every((request) => request.method === 'GET')).toBe(true)
+})
+
 test('shows separate CalendarInfo and EventTypes loading states', () => {
   const client = createApiClient('http://api.example.test', () => new Promise<Response>(() => {}))
   render(<BookingPage client={client} />)
@@ -265,6 +315,7 @@ test('validates required Guest fields before submitting through the typed client
   const requests: Request[] = []
   render(<BookingPage client={clientWith({ requests })} />)
   await user.click(await screen.findByRole('button', { name: /Знакомство/ }))
+  await selectDate()
   await user.click(await screen.findByRole('button', { name: /02:00 UTC\+02:00/ }))
   expect(screen.getByRole('textbox', { name: 'Имя' })).toBeRequired()
   expect(screen.getByRole('textbox', { name: 'Email' })).toBeRequired()
@@ -378,6 +429,7 @@ test('renders calendar-local Slots, distinguishes repeated labels by UTC offset 
   render(<BookingPage client={client} />)
   await user.click(await screen.findByRole('button', { name: /Знакомство/ }))
 
+  await selectDate()
   const early = await screen.findByRole('button', { name: '25.10.2026, 02:00 UTC+02:00 — 25.10.2026, 02:30 UTC+02:00' })
   const late = screen.getByRole('button', { name: '25.10.2026, 02:00 UTC+01:00 — 25.10.2026, 02:30 UTC+01:00' })
   await user.click(early)
@@ -415,6 +467,7 @@ test('waits for calendar metadata before displaying loaded Slot dates', async ()
   expect(screen.getByText('Загрузка календаря…')).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /02:00/ })).not.toBeInTheDocument()
   pending.resolve(json({ timezone: 'Europe/Berlin' }))
+  await selectDate()
   expect(await screen.findByRole('button', { name: /02:00 UTC\+02:00/ })).toBeInTheDocument()
 })
 
@@ -426,6 +479,7 @@ test('switching EventTypes clears Slot selection and ignores late availability r
   })
   render(<BookingPage client={client} />)
   await user.click(await screen.findByRole('button', { name: /Знакомство/ }))
+  await selectDate()
   const early = await screen.findByRole('button', { name: /02:00 UTC\+02:00/ })
   await user.click(early)
   await user.click(screen.getByRole('button', { name: /Знакомство/ }))
@@ -435,6 +489,8 @@ test('switching EventTypes clears Slot selection and ignores late availability r
   expect(screen.queryByRole('button', { name: /02:00/ })).not.toBeInTheDocument()
   expect(screen.getByText('Загрузка доступного времени…')).toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: /Знакомство/ }))
+  expect(await screen.findByLabelText('Дата в часовом поясе календаря')).toHaveValue('')
+  await selectDate()
   expect(await screen.findByRole('button', { name: /02:00 UTC\+02:00/ })).toHaveAttribute('aria-pressed', 'false')
   await act(async () => { pending.resolve(json([])) })
   expect(screen.queryByText('Нет доступного времени для выбранного типа события.')).not.toBeInTheDocument()
@@ -454,6 +510,7 @@ test.each([
   render(<BookingPage client={client} />)
   await user.click(await screen.findByRole('button', { name: /Знакомство/ }))
 
+  await selectDate(timezone === 'America/Los_Angeles' ? '2026-10-24' : '2026-10-25')
   expect(await screen.findByRole('button', { name: label })).toBeInTheDocument()
   expect(screen.getByText(`Часовой пояс календаря: ${timezone}`)).toBeInTheDocument()
 })
