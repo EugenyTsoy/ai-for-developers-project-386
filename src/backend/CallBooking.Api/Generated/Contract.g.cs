@@ -140,7 +140,7 @@ namespace CallBooking.Api.Generated
         System.Threading.Tasks.Task<Microsoft.AspNetCore.Mvc.ActionResult<EventType>> CreateAsync(CreateEventTypeRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <remarks>
-        /// List the available slots for an event type within the booking window.
+        /// List available slots within the next 14 calendar dates including today in the calendar timezone. Starts use a fixed 30-elapsed-minute interval from working-window opening; duration comes from the selected event type. This snapshot does not reserve slots. Clients group starts by calendar-local date before time selection and distinguish repeated DST labels by UTC offset.
         /// </remarks>
 
         /// <returns>The request has succeeded.</returns>
@@ -182,7 +182,7 @@ namespace CallBooking.Api.Generated
         }
 
         /// <remarks>
-        /// List the available slots for an event type within the booking window.
+        /// List available slots within the next 14 calendar dates including today in the calendar timezone. Starts use a fixed 30-elapsed-minute interval from working-window opening; duration comes from the selected event type. This snapshot does not reserve slots. Clients group starts by calendar-local date before time selection and distinguish repeated DST labels by UTC offset.
         /// </remarks>
         /// <returns>The request has succeeded.</returns>
         [Microsoft.AspNetCore.Mvc.HttpGet, Microsoft.AspNetCore.Mvc.Route("api/event-types/{eventTypeId}/slots", Name = "EventTypes_Slots")]
@@ -266,7 +266,7 @@ namespace CallBooking.Api.Generated
         public required string EventTypeId { get; set; }
 
         /// <summary>
-        /// UTC ISO-8601 instant with Z suffix; the requested slot start.
+        /// UTC ISO-8601 instant with Z suffix; start must belong to the fixed 30-elapsed-minute grid anchored at working-window opening and the full event duration must fit that window (otherwise HTTP 400). A canonical selection that is occupied, at/before now or outside the current booking window returns HTTP 409. Availability and owner-wide non-overlap are checked atomically with creation.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("start")]
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
@@ -430,7 +430,7 @@ namespace CallBooking.Api.Generated
     }
 
     /// <summary>
-    /// A bookable time interval.
+    /// A bookable interval: start = working-window open instant + k * 30 elapsed minutes (integer k &gt;= 0), independently of event duration; end = start + authoritative duration. The entire interval must fit the working window and the 14-calendar-date booking window, start strictly after now, and not overlap any booking across event types. DST boundaries: invalid open/close closes the date; ambiguous open uses the earlier instant and close the later instant. Grid arithmetic follows the UTC timeline.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class Slot

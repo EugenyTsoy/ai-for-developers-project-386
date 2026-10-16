@@ -10,6 +10,12 @@ type EventType = components['schemas']['EventType']
 type Slot = components['schemas']['Slot']
 type BookingConfirmation = components['schemas']['BookingConfirmation']
 
+function calendarDate(instant: string, timezone: string) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date(instant))
+}
+
 function GuestForm({ client, eventTypeId, slot, pending, onPending, onResult }: {
   client: ApiClient
   eventTypeId: string
@@ -72,10 +78,12 @@ function GuestForm({ client, eventTypeId, slot, pending, onPending, onResult }: 
   )
 }
 
-function SlotSelection({ client, eventType, timezone, selectedSlot, onSelect, disabled }: {
+function SlotSelection({ client, eventType, timezone, selectedDate, onDateChange, selectedSlot, onSelect, disabled }: {
   client: ApiClient
   eventType: EventType
   timezone?: string
+  selectedDate: string
+  onDateChange: (date: string) => void
   selectedSlot: Slot | null
   onSelect: (slot: Slot) => void
   disabled: boolean
@@ -92,17 +100,28 @@ function SlotSelection({ client, eventType, timezone, selectedSlot, onSelect, di
   }, [client, eventType.id])
 
   const format = timezone ? calendarTimeFormatter(timezone) : null
+  const dates = slots?.ok && timezone
+    ? [...new Set(slots.value.map((slot) => calendarDate(slot.start, timezone)))].sort() : []
+  const dateSlots = slots?.ok && timezone
+    ? slots.value.filter((slot) => calendarDate(slot.start, timezone) === selectedDate) : []
 
   return (
     <section aria-labelledby="slot-title">
-      <h2 id="slot-title">Выберите время: {eventType.name}</h2>
+      <h2 id="slot-title">Выберите дату: {eventType.name}</h2>
       {!slots && <p role="status">Загрузка доступного времени…</p>}
       {slots && !slots.ok && <RequestFailure result={slots} subject="доступное время" />}
       {slots?.ok && slots.value.length === 0 && <p>Нет доступного времени для выбранного типа события.</p>}
       {slots?.ok && format && slots.value.length > 0 && (
         <>
+          <label htmlFor="booking-date">Дата в часовом поясе календаря</label>
+          <input id="booking-date" type="date" value={selectedDate} disabled={disabled}
+            min={dates[0]} max={dates.at(-1)}
+            onChange={(event) => onDateChange(event.target.value)} />
+          {!selectedDate && <p>Выберите дату, чтобы увидеть доступное время.</p>}
+          {selectedDate && <h3>Выберите время</h3>}
+          {selectedDate && dateSlots.length === 0 && <p>На выбранную дату нет доступного времени.</p>}
           <ul className="selection-list">
-            {slots.value.map((slot) => (
+            {dateSlots.map((slot) => (
               <li key={slot.start}>
                 <button type="button" disabled={disabled} aria-pressed={selectedSlot?.start === slot.start}
                   onClick={() => onSelect(slot)}>
@@ -123,6 +142,7 @@ export default function BookingPage({ client = apiClient }: { client?: ApiClient
   const [eventTypes, setEventTypes] = useState<ApiResult<EventType[]> | null>(null)
   const [selectedEventType, setSelectedEventType] = useState<EventType | null>(null)
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null)
+  const [selectedDate, setSelectedDate] = useState('')
   const [pending, setPending] = useState(false)
   const [booking, setBooking] = useState<ApiResult<BookingConfirmation> | null>(null)
   const [availabilityVersion, setAvailabilityVersion] = useState(0)
@@ -167,6 +187,7 @@ export default function BookingPage({ client = apiClient }: { client?: ApiClient
                 onClick={() => {
                   if (selectedEventType?.id !== eventType.id) {
                     setSelectedEventType(eventType)
+                    setSelectedDate('')
                     setSelectedSlot(null)
                     setBooking(null)
                   }
@@ -182,6 +203,11 @@ export default function BookingPage({ client = apiClient }: { client?: ApiClient
       {selectedEventType && (
         <SlotSelection key={`${selectedEventType.id}:${availabilityVersion}`} client={client} eventType={selectedEventType}
           timezone={calendar?.ok ? calendar.value.timezone : undefined}
+          selectedDate={selectedDate} onDateChange={(date) => {
+            setSelectedDate(date)
+            setSelectedSlot(null)
+            setBooking(null)
+          }}
           disabled={pending} selectedSlot={selectedSlot} onSelect={(slot) => {
             setSelectedSlot(slot)
             setBooking(null)
