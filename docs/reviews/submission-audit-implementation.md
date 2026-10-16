@@ -37,12 +37,15 @@
 | AppHost | Release build отдельного `.csproj` | Успех; существующее ASPIRE010 (`AspireUseCliBundle=false`) |
 | Форматирование | `dotnet format <project> --verify-no-changes` для API, Domain, Application, Infrastructure, AppHost и обоих test projects | Успех для всех 7 проектов |
 | Контракт | Root `npm ci`, `dotnet tool restore`, `npm run generate:contract` | Успех; pinned TypeSpec 1.17.0 / NSwag 14.7.1 |
+| Contract drift | После commit: `npm run generate:contract`, `npm run verify:contract-drift`, `git status --short` | PASS: все три generated-пути чистые; весь checkout чистый |
 | Docker | `docker build -t callbooking:submission-audit .` | Multi-stage production build успешен; dependency layers могли использовать cache |
 | Runtime, UTC | `node scripts/check-container.mjs http://localhost:18086` | SPA/assets/404, calendar, типы 30/45/60, сетка, 400, booking/upcoming, race/replay 409 — PASS |
 | Runtime, другая конфигурация | Тот же скрипт на 18087: `PORT=9090`, `Europe/Moscow`, открытие всех рабочих дней 09:15 | PASS; старты привязаны к открытию, не к круглому часу |
 | UI + реальный API | `VITE_RUNTIME_WEB_URL=http://localhost:18086 npm run test:runtime`, повтор на 18087 | 3/3 на каждой конфигурации; 45 минут, выбор даты, сохранение, 409/refresh |
 | Production bundle в Chromium | Создан тип 45 минут, до даты 0 времён, выбрана дата 20.10.2026, затем 09:30–10:15 UTC, отправлен гость, показаны confirmation без PII и upcoming | PASS; дата установлена через native setter + DOM events из-за ограничения browser harness для date input; popup открылся, взаимодействие с его OS-календарём не подтверждено |
 | Контейнерные ограничения | `docker exec ... id`, `dotnet --list-sdks`; запуск с `PORT=invalid` | UID 1654 (app), SDK отсутствует; неверный PORT останавливает запуск |
+| Финальный образ | Повторный Docker build, check-container на 18088 и UI runtime suite | PASS; UI 3/3; JS bundle `index-DLoNBUhR.js` |
+| Restart | После финального runtime-прогона: 5 типов, 3 Booking; restart того же контейнера | Обе коллекции вернули `200 []`, потеря in-memory данных подтверждена |
 
 Regression coverage: 30/45/60 и открытие 09:15; новый 09:45 разрешён, старый
 45-минутный 10:00 off-grid; неполный край → 400; канонический занятый выбор → 409;
