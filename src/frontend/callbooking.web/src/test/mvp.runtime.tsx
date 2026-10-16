@@ -1,4 +1,4 @@
-import { configure, render, screen, within } from '@testing-library/react'
+import { configure, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
 import App from '../App'
@@ -9,6 +9,13 @@ import { calendarTimeFormatter } from '../calendarTimeFormatter'
 const origin = import.meta.env.VITE_RUNTIME_WEB_URL || 'http://localhost:49567'
 const client = createApiClient(origin)
 configure({ asyncUtilTimeout: 10000 })
+
+async function selectDate(start: string, timezone: string) {
+  const date = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date(start))
+  fireEvent.change(await screen.findByLabelText('Дата в часовом поясе календаря'), { target: { value: date } })
+}
 
 test('client routes survive direct requests to the web host', async () => {
   for (const path of ['/', '/booking', '/events']) {
@@ -51,6 +58,7 @@ test('owner creates an EventType, guest books a Slot, and both views read shared
   const slot = availability.value.find((candidate) => Date.parse(candidate.start) > Date.now() + 3600000)
   if (!slot) throw new Error('Runtime check needs a free 45-minute slot more than one hour in the future')
   const interval = `${format(slot.start)} — ${format(slot.end)}`
+  await selectDate(slot.start, metadata.value.timezone)
   await user.click(await screen.findByRole('button', { name: interval }))
   await user.type(screen.getByLabelText('Имя'), 'Runtime Guest')
   await user.click(screen.getByLabelText('Email'))
@@ -74,6 +82,7 @@ test('owner creates an EventType, guest books a Slot, and both views read shared
   expect(remaining.value.some((candidate) => candidate.start === slot.start)).toBe(false)
   await user.click(screen.getByRole('link', { name: 'Записаться' }))
   await user.click(await screen.findByRole('button', { name }))
+  await selectDate(slot.start, metadata.value.timezone)
   await screen.findByText('Выбор времени не резервирует слот.')
   expect(screen.queryByRole('button', { name: interval })).not.toBeInTheDocument()
 
@@ -101,6 +110,7 @@ test('a slot booked after UI selection produces a conflict and refreshed availab
   window.history.replaceState(null, '', '/booking')
   render(<App client={client} />)
   await user.click(await screen.findByRole('button', { name }))
+  await selectDate(slot.start, metadata.value.timezone)
   await user.click(await screen.findByRole('button', { name: interval }))
   await user.type(screen.getByLabelText('Имя'), 'Losing guest')
   await user.type(screen.getByLabelText('Email'), 'losing@example.com')

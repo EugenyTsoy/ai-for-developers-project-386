@@ -13,7 +13,7 @@ namespace CallBooking.Api.Tests;
 public class SlotsHttpTests
 {
     [Fact]
-    public async Task Known_type_returns_its_saved_duration_grid_as_UTC_Z_slots()
+    public async Task Known_type_returns_fixed_start_grid_with_saved_duration_as_UTC_Z_slots()
     {
         using var host = new SlotsHost("Etc/UTC", "2026-10-14T09:40:00Z", DayOfWeek.Wednesday, "09:15", "10:50");
         host.EventTypes.Add(new EventType("saved-type", "Call", null, 30));
@@ -48,10 +48,11 @@ public class SlotsHttpTests
 
     [Theory]
     [InlineData(30, new[] { "09:15", "09:45", "10:15" })]
-    [InlineData(45, new[] { "09:15", "10:00" })]
+    [InlineData(45, new[] { "09:15", "09:45" })]
+    [InlineData(60, new[] { "09:15", "09:45" })]
     [InlineData(100, new string[] { })]
     [InlineData(int.MaxValue, new string[] { })]
-    public async Task Each_saved_type_has_its_own_grid_and_long_duration_is_a_successful_empty_result(
+    public async Task Fixed_start_interval_is_independent_of_duration_and_long_duration_is_a_successful_empty_result(
         int duration, string[] expected)
     {
         using var host = new SlotsHost("Etc/UTC", "2026-10-14T08:00:00Z", DayOfWeek.Wednesday, "09:15", "10:50");
@@ -160,10 +161,10 @@ public class SlotsHttpTests
     [Theory]
     [InlineData("2026-03-28T22:00:00Z", "00:00", "05:00", 45, new[]
     {
-        "2026-03-28T23:00:00Z", "2026-03-28T23:45:00Z", "2026-03-29T00:30:00Z",
-        "2026-03-29T01:15:00Z", "2026-03-29T02:00:00Z"
+        "2026-03-28T23:00:00Z", "2026-03-28T23:30:00Z", "2026-03-29T00:00:00Z",
+        "2026-03-29T00:30:00Z", "2026-03-29T01:00:00Z", "2026-03-29T01:30:00Z", "2026-03-29T02:00:00Z"
     })]
-    [InlineData("2026-10-24T21:00:00Z", "02:00", "03:00", 60, new[] { "2026-10-25T00:00:00Z", "2026-10-25T01:00:00Z" })]
+    [InlineData("2026-10-24T21:00:00Z", "02:00", "03:00", 60, new[] { "2026-10-25T00:00:00Z", "2026-10-25T00:30:00Z", "2026-10-25T01:00:00Z" })]
     [InlineData("2026-10-24T21:00:00Z", "01:00", "02:30", 30, new[]
     {
         "2026-10-24T23:00:00Z", "2026-10-24T23:30:00Z", "2026-10-25T00:00:00Z",
