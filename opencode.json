@@ -1,5 +1,27 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "permissions": [
+    {
+      "action": "render_create_*",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "render_trigger_deploy",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "render_update_environment_variables",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "render_select_workspace",
+      "resource": "*",
+      "effect": "ask"
+    }
+  ],
   "mcp": {
     "servers": {
       "render": {
