@@ -5,12 +5,12 @@ import App from '../App'
 import { createApiClient, toApiResult } from '../api/client'
 import { calendarTimeFormatter } from '../calendarTimeFormatter'
 
-// Opt-in: exercises a running Vite + API stack, never an injected HTTP fake.
+// Opt-in: exercises a running Vite + API stack or the production container.
 const origin = import.meta.env.VITE_RUNTIME_WEB_URL || 'http://localhost:49567'
 const client = createApiClient(origin)
 configure({ asyncUtilTimeout: 10000 })
 
-test('client routes survive direct requests to the Vite host', async () => {
+test('client routes survive direct requests to the web host', async () => {
   for (const path of ['/', '/booking', '/events']) {
     const response = await fetch(new URL(path, origin))
     expect(response.status).toBe(200)
@@ -21,7 +21,7 @@ test('client routes survive direct requests to the Vite host', async () => {
 
 test('owner creates an EventType, guest books a Slot, and both views read shared saved state', async () => {
   const metadata = await toApiResult(client.GET('/api/calendar'))
-  expect(metadata.ok, 'Start the API and Vite with its /api proxy before running test:runtime').toBe(true)
+  expect(metadata.ok, 'Start the local stack or production container before running test:runtime').toBe(true)
   if (!metadata.ok) throw new Error('Calendar API unavailable')
   const format = calendarTimeFormatter(metadata.value.timezone)
   const name = `Runtime call ${crypto.randomUUID()}`
@@ -80,4 +80,38 @@ test('owner creates an EventType, guest books a Slot, and both views read shared
   await user.click(screen.getByRole('link', { name: 'Calendar' }))
   expect(window.location.pathname).toBe('/')
   expect(screen.getByRole('heading', { name: 'Calendar', level: 1 })).toBeInTheDocument()
+})
+
+test('a slot booked after UI selection produces a conflict and refreshed availability', async () => {
+  const name = `Runtime conflict ${crypto.randomUUID()}`
+  const created = await toApiResult(client.POST('/api/event-types', {
+    body: { name, durationMinutes: 30 },
+  }))
+  const metadata = await toApiResult(client.GET('/api/calendar'))
+  if (!created.ok || !metadata.ok) throw new Error('Runtime API unavailable')
+  const availability = await toApiResult(client.GET('/api/event-types/{eventTypeId}/slots', {
+    params: { path: { eventTypeId: created.value.id } },
+  }))
+  if (!availability.ok) throw new Error('Cannot read availability')
+  const slot = availability.value.find((candidate) => Date.parse(candidate.start) > Date.now() + 3600000)
+  if (!slot) throw new Error('Runtime conflict check needs a free 30-minute slot')
+  const format = calendarTimeFormatter(metadata.value.timezone)
+  const interval = `${format(slot.start)} — ${format(slot.end)}`
+  const user = userEvent.setup()
+  window.history.replaceState(null, '', '/booking')
+  render(<App client={client} />)
+  await user.click(await screen.findByRole('button', { name }))
+  await user.click(await screen.findByRole('button', { name: interval }))
+  await user.type(screen.getByLabelText('Имя'), 'Losing guest')
+  await user.type(screen.getByLabelText('Email'), 'losing@example.com')
+
+  const winner = await toApiResult(client.POST('/api/bookings', {
+    body: { eventTypeId: created.value.id, start: slot.start, name: 'Winning guest', email: 'winning@example.com' },
+  }))
+  expect(winner.ok).toBe(true)
+  await user.click(screen.getByRole('button', { name: 'Записаться' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Слот больше недоступен, выберите другой.')
+  await screen.findByText('Выбор времени не резервирует слот.')
+  expect(screen.queryByRole('button', { name: interval })).not.toBeInTheDocument()
+  expect(screen.queryByRole('heading', { name: 'Запись подтверждена' })).not.toBeInTheDocument()
 })
