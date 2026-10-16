@@ -40,6 +40,13 @@
   процесс раздаёт frontend и API на одном origin. Порт задаётся через `PORT`.
 - **Тесты:** xUnit, Vitest и React Testing Library; CI — GitHub Actions.
 
+## MCP для AI-агента
+
+В репозитории есть проектная конфигурация OpenCode V2 для Render MCP.
+Перед запуском OpenCode задайте `RENDER_API_KEY` в окружении; ключи в Git не храните.
+[Короткая инструкция настройки и проверки подключения](docs/agents/mcp.md).
+Для запуска приложения MCP не требуется.
+
 ## Установка
 
 ```bash
