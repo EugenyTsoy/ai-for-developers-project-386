@@ -42,29 +42,43 @@ const calendar = await json('/api/calendar')
 assert.equal(typeof calendar.timezone, 'string')
 new Intl.DateTimeFormat('en', { timeZone: calendar.timezone })
 const types = []
-for (const durationMinutes of [30, 60]) {
+for (const durationMinutes of [30, 45, 60]) {
   types.push(await json('/api/event-types', 201, { name: `${run} ${durationMinutes}`, durationMinutes }))
 }
 const listed = await json('/api/event-types')
 assert(types.every((type) => listed.some((item) => item.id === type.id)))
 const slotsPath = (type) => `/api/event-types/${encodeURIComponent(type.id)}/slots`
 const slots = await Promise.all(types.map((type) => json(slotsPath(type))))
-const slot = slots[1].find((candidate) => Date.parse(candidate.start) > Date.now() + 3600000
-  && slots[0].some((half) => half.start === candidate.start))
+for (let index = 0; index < types.length; index++) {
+  for (const candidate of slots[index]) {
+    assert.equal(Date.parse(candidate.end) - Date.parse(candidate.start), types[index].durationMinutes * 60000)
+    assert(slots[0].some((short) => short.start === candidate.start), 'All durations share the same start grid')
+  }
+}
+const slot = slots[2].find((candidate) => Date.parse(candidate.start) > Date.now() + 3600000
+  && slots.every((list) => list.some((item) => item.start === candidate.start)
+    && list.some((item) => Date.parse(item.start) === Date.parse(candidate.start) + 1800000)))
 assert(slot, 'Need a free canonical hour slot more than one hour in the future')
 
 const body = (index) => ({
-  eventTypeId: types[index % 2].id, start: slot.start,
+  eventTypeId: types[index % types.length].id, start: slot.start,
   name: `${run} guest ${index}`, email: `container${index}@example.com`,
 })
+const offGrid = await request('/api/bookings', {
+  ...body(1), start: new Date(Date.parse(slot.start) + 900000).toISOString(),
+})
+assert.equal(offGrid.status, 400)
+assert.match(offGrid.headers.get('content-type'), /application\/problem\+json/)
+assert.equal((await offGrid.json()).status, 400)
 const responses = await Promise.all(Array.from({ length: 8 }, (_, index) => request('/api/bookings', body(index))))
 assert.deepEqual(responses.map((response) => response.status).sort(), [201, 409, 409, 409, 409, 409, 409, 409])
 let confirmation
-for (const response of responses) {
+for (const [index, response] of responses.entries()) {
   const result = await response.json()
   if (response.status === 201) {
     assert.deepEqual(Object.keys(result).sort(), ['end', 'start'])
     assert.equal(result.start, slot.start)
+    assert.equal(Date.parse(result.end) - Date.parse(result.start), types[index % types.length].durationMinutes * 60000)
     confirmation = result
   } else {
     assert.match(response.headers.get('content-type'), /application\/problem\+json/)
@@ -84,4 +98,4 @@ for (const type of types) {
   assert(!remaining.some((candidate) => candidate.start < confirmation.end && confirmation.start < candidate.end))
 }
 console.log(`PASS: calendar (${calendar.timezone}), create/list types, slots, booking/upcoming`)
-console.log('PASS: 8 concurrent requests across two types -> one 201, seven 409; replay 409; overlaps removed')
+console.log('PASS: fixed 30-minute start interval for 30/45/60; off-grid 400; 8 concurrent requests across three types -> one 201, seven 409; replay 409; overlaps removed')

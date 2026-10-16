@@ -33,7 +33,7 @@ public class BookingContentionTests
     public async Task Different_event_types_with_same_start_under_contention_commit_exactly_one_booking(bool reverseRequests)
     {
         Selection[] selections = [
-            new("hour", "2026-10-14T10:00:00Z", "2026-10-14T11:00:00Z"),
+            new("forty-five", "2026-10-14T10:00:00Z", "2026-10-14T10:45:00Z"),
             new("half", "2026-10-14T10:00:00Z", "2026-10-14T10:30:00Z"),
             new("hour", "2026-10-14T10:00:00Z", "2026-10-14T11:00:00Z"),
             new("half", "2026-10-14T10:00:00Z", "2026-10-14T10:30:00Z")
@@ -53,6 +53,18 @@ public class BookingContentionTests
             new("half", "2026-10-14T10:30:00Z", "2026-10-14T11:00:00Z"),
             new("hour", "2026-10-14T10:00:00Z", "2026-10-14T11:00:00Z"),
             new("half", "2026-10-14T10:30:00Z", "2026-10-14T11:00:00Z")
+        ];
+        await AssertContendedBookings(reverseRequests ? selections.Reverse().ToArray() : selections);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Forty_five_minute_and_half_hour_selections_with_different_starts_contend_for_same_time(bool reverseRequests)
+    {
+        Selection[] selections = [
+            new("forty-five", "2026-10-14T09:30:00Z", "2026-10-14T10:15:00Z"),
+            new("half", "2026-10-14T10:00:00Z", "2026-10-14T10:30:00Z")
         ];
         await AssertContendedBookings(reverseRequests ? selections.Reverse().ToArray() : selections);
     }
@@ -87,6 +99,7 @@ public class BookingContentionTests
         {
             var types = scope.ServiceProvider.GetRequiredService<IEventTypeRepository>();
             types.Add(new EventType("half", "Short call", null, 30));
+            types.Add(new EventType("forty-five", "Medium call", null, 45));
             types.Add(new EventType("hour", "Long call", null, 60));
         }
         var store = factory.Services.GetRequiredService<IInMemoryCalendarStore>();

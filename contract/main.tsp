@@ -42,7 +42,7 @@ model CreateEventTypeRequest {
   durationMinutes: int32;
 }
 
-@doc("A bookable time interval.")
+@doc("A bookable interval: start = working-window open instant + k * 30 elapsed minutes (integer k >= 0), independently of event duration; end = start + authoritative duration. The entire interval must fit the working window and the 14-calendar-date booking window, start strictly after now, and not overlap any booking across event types. DST boundaries: invalid open/close closes the date; ambiguous open uses the earlier instant and close the later instant. Grid arithmetic follows the UTC timeline.")
 model Slot {
   @doc("UTC ISO-8601 instant with Z suffix.")
   start: utcDateTime;
@@ -56,7 +56,7 @@ model CreateBookingRequest {
   @doc("Identifier of the selected event type.")
   eventTypeId: string;
 
-  @doc("UTC ISO-8601 instant with Z suffix; the requested slot start.")
+  @doc("UTC ISO-8601 instant with Z suffix; start must belong to the fixed 30-elapsed-minute grid anchored at working-window opening and the full event duration must fit that window (otherwise HTTP 400). A canonical selection that is occupied, at/before now or outside the current booking window returns HTTP 409. Availability and owner-wide non-overlap are checked atomically with creation.")
   start: utcDateTime;
 
   @doc("Required, non-empty after trim.")
@@ -181,7 +181,7 @@ op createEventType(@body request: CreateEventTypeRequest):
   | EventTypeCreatedResponse
   | BadRequestResponse;
 
-@doc("List the available slots for an event type within the booking window.")
+@doc("List available slots within the next 14 calendar dates including today in the calendar timezone. Starts use a fixed 30-elapsed-minute interval from working-window opening; duration comes from the selected event type. This snapshot does not reserve slots. Clients group starts by calendar-local date before time selection and distinguish repeated DST labels by UTC offset.")
 @tag("EventTypes")
 @operationId("EventTypes_Slots")
 @get
