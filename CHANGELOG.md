@@ -1,5 +1,38 @@
 # Changelog
 
+## [1.1.0](https://github.com/EugenyTsoy/ai-for-developers-project-386/compare/v1.0.0...v1.1.0) (2026-10-21)
+
+
+### Features
+
+* add owner event type creation form ([#27](https://github.com/EugenyTsoy/ai-for-developers-project-386/issues/27)) ([1882759](https://github.com/EugenyTsoy/ai-for-developers-project-386/commit/1882759979b11826836fe07d45a72348a59114ad))
+* **arch:** introduce Domain/Application/Infrastructure boundaries ([b442613](https://github.com/EugenyTsoy/ai-for-developers-project-386/commit/b44261349282db21126236879d7ce3951cd33ee0))
+* **bookings:** implement atomic booking creation ([a6804c5](https://github.com/EugenyTsoy/ai-for-developers-project-386/commit/a6804c59c4ab1cf529467de93ddb9d8da5830604))
+* **calendar:** configure calendar and deterministic time (TK3) ([e24aac5](https://github.com/EugenyTsoy/ai-for-developers-project-386/commit/e24aac53ebdf172097f1604c281c5a5e43efda36))
+* deliver call booking MVP ([#35](https://github.com/EugenyTsoy/ai-for-developers-project-386/issues/35)) ([d2adb66](https://github.com/EugenyTsoy/ai-for-developers-project-386/commit/d2adb66dc8d25bb1ff8fb5303b25d1382bbc6204))
+* **docker:** package frontend and API in one container ([b94a93b](https://github.com/EugenyTsoy/ai-for-developers-project-386/commit/b94a93b6bdb1f8fe13942771c28d332981f784c5))
+* **docker:** package frontend and API in one container ([7b997a3](https://github.com/EugenyTsoy/ai-for-developers-project-386/commit/7b997a3228f513cbfe8432d776ba6af5062e4f97))
+* **event-types:** implement persisted creation and listing ([#22](https://github.com/EugenyTsoy/ai-for-developers-project-386/issues/22)) ([621d0e0](https://github.com/EugenyTsoy/ai-for-developers-project-386/commit/621d0e0fa546b8bc182b821826003b77654cfc54))
+* **frontend:** complete guest booking flow (TK11) ([982b1cb](https://github.com/EugenyTsoy/ai-for-developers-project-386/commit/982b1cb2002fa1fefecbeaa44f72c47f88df950a))
+* **frontend:** implement guest EventType and Slot selection ([#28](https://github.com/EugenyTsoy/ai-for-developers-project-386/issues/28)) ([882c948](https://github.com/EugenyTsoy/ai-for-developers-project-386/commit/882c948c312d96cffe5cddec882a193f41269fe1))
+* **frontend:** implement owner upcoming bookings list ([#30](https://github.com/EugenyTsoy/ai-for-developers-project-386/issues/30)) ([12ea60a](https://github.com/EugenyTsoy/ai-for-developers-project-386/commit/12ea60a13dfc60de4bc7516f3ee9c7b7ed7e7ec6))
+* implement event type slot availability ([#23](https://github.com/EugenyTsoy/ai-for-developers-project-386/issues/23)) ([74a15f0](https://github.com/EugenyTsoy/ai-for-developers-project-386/commit/74a15f0d90c80b37c48e63e2de3c15e8be64c565))
+* implement upcoming bookings query (TK8) ([a4d7b8b](https://github.com/EugenyTsoy/ai-for-developers-project-386/commit/a4d7b8b3e21c9c9e552eaa2c77c65783b87adc95)), closes [#26](https://github.com/EugenyTsoy/ai-for-developers-project-386/issues/26)
+* **storage:** persist EventType and Booking via shared in-memory store (TK2) ([be113c0](https://github.com/EugenyTsoy/ai-for-developers-project-386/commit/be113c054b311dd103e344b2374e7a71763286af))
+* use fixed 30-minute booking starts and calendar date selection ([2792f25](https://github.com/EugenyTsoy/ai-for-developers-project-386/commit/2792f25cbc1344c6d5accee16de958d1e2780760))
+* фиксированный интервал стартов и выбор даты после Submission Audit ([ade6ddd](https://github.com/EugenyTsoy/ai-for-developers-project-386/commit/ade6ddde444f95c1f5ad1a45a6f8157d667ab272))
+
+
+### Bug Fixes
+
+* **api:** normalize controller seam formatting ([3e4d86a](https://github.com/EugenyTsoy/ai-for-developers-project-386/commit/3e4d86a788560d99eec5e738c71fde52cf8f2db5))
+* **arch:** narrow TK1 to architectural scaffolding only ([59de65d](https://github.com/EugenyTsoy/ai-for-developers-project-386/commit/59de65d01bc15334460a58fc7cb01bc3b6eb93ce))
+* **arch:** tighten review findings on TK1 ([f7c4628](https://github.com/EugenyTsoy/ai-for-developers-project-386/commit/f7c4628a78fc6b60087ca8fbb43cc0e3ba6aedb8))
+* connect MVP frontend to real API through Vite proxy ([#31](https://github.com/EugenyTsoy/ai-for-developers-project-386/issues/31)) ([42c79ed](https://github.com/EugenyTsoy/ai-for-developers-project-386/commit/42c79edfa73b0c7cf12feea044ff607f750d74b3))
+* guard Render MCP mutations and document server environment ([9b50c38](https://github.com/EugenyTsoy/ai-for-developers-project-386/commit/9b50c38eae19f985d16cae9b3652d381977b6b3d))
+* reject lossy booking timestamps and validate trimmed email ([27104b4](https://github.com/EugenyTsoy/ai-for-developers-project-386/commit/27104b42f1f960409c62d361a60853d5343374de))
+* reject UTC timestamps with an empty fraction ([acd4d45](https://github.com/EugenyTsoy/ai-for-developers-project-386/commit/acd4d452af2567801b1470b507b98709db6cfcf6))
+
 ## [1.1.0](https://github.com/EugenyTsoy/ai-for-developers-project-386/compare/v1.0.0...v1.1.0) (2026-10-16)
 
 
